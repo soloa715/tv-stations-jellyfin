@@ -1,8 +1,5 @@
 using Jellyfin.Data.Enums;
-using Jellyfin.Database.Implementations.Enums;
 using MediaBrowser.Controller.Entities;
-using MediaBrowser.Controller.Entities.Movies;
-using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.LiveTv;
 using MediaBrowser.Model.Dto;
@@ -19,12 +16,6 @@ public sealed class TvStationsService : ILiveTvService
     private const string ChannelShowPrefix = "tvstations-shows-";
     private const int MovieChannelBase = 100;
     private const int ShowChannelBase = 200;
-
-    private static readonly IReadOnlyList<(ItemSortBy, SortOrder)> SortByName =
-        new[] { (ItemSortBy.SortName, SortOrder.Ascending) };
-
-    private static readonly IReadOnlyList<(ItemSortBy, SortOrder)> SortByRandom =
-        new[] { (ItemSortBy.Random, SortOrder.Ascending) };
 
     private readonly ILibraryManager _libraryManager;
     private readonly ILogger<TvStationsService> _logger;
@@ -202,8 +193,7 @@ public sealed class TvStationsService : ILiveTvService
         {
             IncludeItemTypes = new[] { kind },
             IsVirtualItem = false,
-            Recursive = true,
-            OrderBy = SortByName
+            Recursive = true
         };
 
         var result = _libraryManager.GetItemsResult(query);
@@ -222,13 +212,13 @@ public sealed class TvStationsService : ILiveTvService
             IncludeItemTypes = new[] { kind },
             IsVirtualItem = false,
             Recursive = true,
-            Genres = new[] { genre },
-            OrderBy = SortByName
+            Genres = new[] { genre }
         };
 
         var result = _libraryManager.GetItemsResult(query);
         return result.Items
             .Where(i => !string.IsNullOrEmpty(i.Path))
+            .OrderBy(i => i.SortName, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
 
@@ -280,8 +270,7 @@ public sealed class TvStationsService : ILiveTvService
             IsVirtualItem = false,
             Recursive = true,
             Genres = new[] { genre },
-            Limit = 1,
-            OrderBy = SortByRandom
+            Limit = 1
         };
 
         var item = _libraryManager.GetItemsResult(query).Items.FirstOrDefault();
