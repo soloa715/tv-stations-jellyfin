@@ -60,7 +60,7 @@ jobs:
       - name: Compute MD5 checksum
         id: checksum
         run: |
-          CHECKSUM=$(md5sum jellyfin-plugin-tvstations_${{ steps.version.outputs.VERSION }}.0.zip | awk '{print $1}')
+          CHECKSUM=$(sha256sum jellyfin-plugin-tvstations_${{ steps.version.outputs.VERSION }}.0.zip | awk '{print $1}')
           echo "CHECKSUM=$CHECKSUM" >> $GITHUB_OUTPUT
 
       - name: Update manifest.json
