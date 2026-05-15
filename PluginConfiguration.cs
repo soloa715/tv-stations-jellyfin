@@ -8,7 +8,7 @@ public class PluginConfiguration : BasePluginConfiguration
     {
         EnableMovies = true;
         EnableShows = true;
-        MinItemsPerChannel = 2;
+        MinItemsPerChannel = 1;
         MaxGenresPerType = 50;
     }
 

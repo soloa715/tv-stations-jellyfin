@@ -1,5 +1,6 @@
 using Jellyfin.Data.Enums;
 using MediaBrowser.Controller.Entities;
+using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.LiveTv;
 using MediaBrowser.Model.Dto;
@@ -104,7 +105,7 @@ public sealed class TvStationsService : ILiveTvService
             {
                 ChannelId = channelId,
                 Id = $"{channelId}-{item.Id}-{scheduled.StartUtc.Ticks}",
-                Name = item.Name ?? "Unknown",
+                Name = FormatItemName(item),
                 Overview = item.Overview,
                 StartDate = scheduled.StartUtc,
                 EndDate = scheduled.EndUtc,
@@ -250,6 +251,22 @@ public sealed class TvStationsService : ILiveTvService
             Container = Path.GetExtension(item.Path).TrimStart('.'),
             RunTimeTicks = item.RunTimeTicks
         };
+    }
+
+    private static string FormatItemName(BaseItem item)
+    {
+        if (item is Episode episode)
+        {
+            var series = episode.SeriesName ?? "Unknown Series";
+            var s = episode.ParentIndexNumber?.ToString("D2") ?? "??";
+            var e = episode.IndexNumber?.ToString("D2") ?? "??";
+            var epName = episode.Name;
+            return string.IsNullOrWhiteSpace(epName)
+                ? $"{series} - S{s}E{e}"
+                : $"{series} - S{s}E{e} - {epName}";
+        }
+
+        return item.Name ?? "Unknown";
     }
 
     private string? GetItemImageUrl(BaseItem item)
