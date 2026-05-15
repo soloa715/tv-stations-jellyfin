@@ -6,7 +6,6 @@
     "overview": "TV Stations automatically generates genre-based TV channels from your Jellyfin library. Browse live channels like 'Action Movies', 'Drama Shows', and more — complete with an Electronic Program Guide showing what is on now and what is coming up next.",
     "owner": "soloa715",
     "category": "Live TV",
-    "imageUrl": "https://raw.githubusercontent.com/soloa715/tv-stations-jellyfin/main/logo.png",
     "versions": [
       {
         "version": "1.0.2.0",
