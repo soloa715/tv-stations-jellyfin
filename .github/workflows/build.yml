@@ -2,83 +2,82 @@ name: Build and Release
 
 on:
   push:
-    tags:
-      - 'v*'
-      - 'V*'
+    branches: [main]
   pull_request:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '9.0.x'
 
-      - name: Restore
-        run: dotnet restore
-
-      - name: Build
-        run: dotnet build --configuration Release --no-restore
-
-      - name: Publish
-        run: dotnet publish --configuration Release --no-build --output ./publish
+      - run: dotnet restore
+      - run: dotnet build --configuration Release --no-restore
+      - run: dotnet publish --configuration Release --no-build --output ./publish
 
   release:
     runs-on: ubuntu-latest
     needs: build
-    if: startsWith(github.ref, 'refs/tags/')
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '9.0.x'
 
-      - name: Get version from tag
+      - name: Read version from csproj
         id: version
         run: |
-          TAG=${GITHUB_REF#refs/tags/}
-          VERSION=${TAG#v}
-          VERSION=${VERSION#V}
+          VERSION=$(grep -oP '(?<=<Version>)[^<]+' Jellyfin.Plugin.TvStations.csproj)
+          # csproj uses 1.0.8.0 → tag uses v1.0.8
+          TAG="v${VERSION%.0}"
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           echo "TAG=$TAG" >> $GITHUB_OUTPUT
 
+      - name: Check if release already exists
+        id: check
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ steps.version.outputs.TAG }}")
+          echo "EXISTS=$([ "$STATUS" = "200" ] && echo true || echo false)" >> $GITHUB_OUTPUT
+
       - name: Publish plugin
-        run: dotnet publish --configuration Release --output ./publish -p:Version=${{ steps.version.outputs.VERSION }}.0
+        if: steps.check.outputs.EXISTS == 'false'
+        run: dotnet publish --configuration Release --output ./publish -p:Version=${{ steps.version.outputs.VERSION }}
 
       - name: Create ZIP archive
+        if: steps.check.outputs.EXISTS == 'false'
         run: |
-          cd publish
-          zip -j ../jellyfin-plugin-tvstations_${{ steps.version.outputs.VERSION }}.0.zip Jellyfin.Plugin.TvStations.dll
-          cd ..
+          zip -j jellyfin-plugin-tvstations_${{ steps.version.outputs.VERSION }}.zip \
+            publish/Jellyfin.Plugin.TvStations.dll
 
       - name: Compute MD5 checksum
         id: checksum
+        if: steps.check.outputs.EXISTS == 'false'
         run: |
-          CHECKSUM=$(md5sum jellyfin-plugin-tvstations_${{ steps.version.outputs.VERSION }}.0.zip | awk '{print $1}')
+          CHECKSUM=$(md5sum jellyfin-plugin-tvstations_${{ steps.version.outputs.VERSION }}.zip | awk '{print $1}')
           echo "CHECKSUM=$CHECKSUM" >> $GITHUB_OUTPUT
 
       - name: Update manifest.json
+        if: steps.check.outputs.EXISTS == 'false'
         run: |
-          VERSION="${{ steps.version.outputs.VERSION }}.0"
-          CHECKSUM="${{ steps.checksum.outputs.CHECKSUM }}"
+          VERSION="${{ steps.version.outputs.VERSION }}"
           TAG="${{ steps.version.outputs.TAG }}"
+          CHECKSUM="${{ steps.checksum.outputs.CHECKSUM }}"
           SOURCE_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/jellyfin-plugin-tvstations_${VERSION}.zip"
           TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
           python3 - << PYEOF
-          import json, sys
+          import json
 
           with open('manifest.json') as f:
               manifest = json.load(f)
@@ -104,6 +103,7 @@ jobs:
           PYEOF
 
       - name: Commit updated manifest
+        if: steps.check.outputs.EXISTS == 'false'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -112,9 +112,12 @@ jobs:
           git push origin HEAD:main || echo "Could not push manifest update"
 
       - name: Create GitHub Release
+        if: steps.check.outputs.EXISTS == 'false'
         uses: softprops/action-gh-release@v2
         with:
-          files: jellyfin-plugin-tvstations_${{ steps.version.outputs.VERSION }}.0.zip
+          tag_name: ${{ steps.version.outputs.TAG }}
+          name: ${{ steps.version.outputs.TAG }}
+          files: jellyfin-plugin-tvstations_${{ steps.version.outputs.VERSION }}.zip
           generate_release_notes: true
           body: |
             ## Installation
