@@ -12,7 +12,7 @@
         "changelog": "Fix Malfunctioned status caused by DLL version mismatch with manifest version.",
         "targetAbi": "10.11.0.0",
         "sourceUrl": "https://github.com/soloa715/tv-stations-jellyfin/releases/download/v1.0.3/jellyfin-plugin-tvstations_1.0.3.0.zip",
-        "checksum": "a5b3ea5d227ae5467bccad7bf4f2c0492e337395acd1477a1be7d22d13778c9f",
+        "checksum": "20806b9c05bec84e1026775ea14702c3",
         "timestamp": "2026-05-15T12:30:00Z"
       },
       {
