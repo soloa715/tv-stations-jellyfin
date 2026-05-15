@@ -18,7 +18,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: '9.0.x'
 
       - name: Restore
         run: dotnet restore
@@ -42,7 +42,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: '9.0.x'
 
       - name: Get version from tag
         id: version
@@ -80,7 +80,7 @@ jobs:
           new_version = {
               "version": "${VERSION}",
               "changelog": "See https://github.com/${{ github.repository }}/releases/tag/v${{ steps.version.outputs.VERSION }}",
-              "targetAbi": "10.10.0.0",
+              "targetAbi": "10.11.0.0",
               "sourceUrl": "${SOURCE_URL}",
               "checksum": "${CHECKSUM}",
               "timestamp": "${TIMESTAMP}"

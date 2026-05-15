@@ -3,7 +3,7 @@
     "guid": "a8b4c6d2-1e3f-4a5b-8c7d-9e0f1a2b3c4d",
     "name": "TV Stations",
     "description": "Creates virtual Live TV channels from your media library, organized by genre. Separate channel groups for Movies and Shows.",
-    "overview": "TV Stations automatically generates genre-based TV channels from your Jellyfin library. Browse live channels like 'Action Movies', 'Drama Shows', and more \u2014 complete with an Electronic Program Guide showing what is on now and what is coming up next.",
+    "overview": "TV Stations automatically generates genre-based TV channels from your Jellyfin library. Browse live channels like 'Action Movies', 'Drama Shows', and more — complete with an Electronic Program Guide showing what is on now and what is coming up next.",
     "owner": "soloa715",
     "category": "Live TV",
     "imageUrl": "https://raw.githubusercontent.com/soloa715/tv-stations-jellyfin/main/logo.png",
