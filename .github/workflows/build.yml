@@ -49,7 +49,7 @@ jobs:
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
       - name: Publish plugin
-        run: dotnet publish --configuration Release --output ./publish
+        run: dotnet publish --configuration Release --output ./publish -p:Version=${{ steps.version.outputs.VERSION }}.0
 
       - name: Create ZIP archive
         run: |
