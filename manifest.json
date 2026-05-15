@@ -8,6 +8,14 @@
     "category": "Live TV",
     "versions": [
       {
+        "version": "1.0.9.0",
+        "changelog": "See https://github.com/soloa715/tv-stations-jellyfin/releases/tag/v1.0.9",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/soloa715/tv-stations-jellyfin/releases/download/v1.0.9/jellyfin-plugin-tvstations_1.0.9.0.zip",
+        "checksum": "b211a07c50eb3be8c67a18ff5861844b",
+        "timestamp": "2026-05-15T21:21:47Z"
+      },
+      {
         "version": "1.0.7.0",
         "changelog": "See https://github.com/soloa715/tv-stations-jellyfin/releases/tag/v1.0.7",
         "targetAbi": "10.11.0.0",
