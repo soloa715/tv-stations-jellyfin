@@ -170,7 +170,7 @@ public sealed class TvStationsService : ILiveTvService
     public Task CancelSeriesTimerAsync(string timerId, CancellationToken cancellationToken)
         => Task.CompletedTask;
 
-    private IReadOnlyList<BaseItem> GetItemsForChannel(string channelId)
+    internal IReadOnlyList<BaseItem> GetItemsForChannel(string channelId)
     {
         if (channelId.StartsWith(ChannelMoviePrefix, StringComparison.OrdinalIgnoreCase))
         {

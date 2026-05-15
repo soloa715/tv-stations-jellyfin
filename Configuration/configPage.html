@@ -8,13 +8,28 @@
 <div id="TvStationsConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox,emby-select">
     <div data-role="content">
         <div class="content-primary">
-            <form id="TvStationsConfigForm">
-                <div class="sectionTitleContainer flex align-items-center">
-                    <h2 class="sectionTitle">TV Stations Settings</h2>
-                </div>
-                <p>TV Stations creates virtual Live TV channels from your media library, organized by genre.</p>
-                <p>After saving, go to <strong>Dashboard → Live TV → TV Tuners</strong> to see your genre channels.</p>
 
+            <div class="sectionTitleContainer flex align-items-center">
+                <h2 class="sectionTitle">TV Stations Settings</h2>
+            </div>
+
+            <div style="background:#1a1a2e;border-left:4px solid #00a4dc;padding:12px 16px;margin-bottom:20px;border-radius:4px">
+                <h3 style="margin:0 0 8px">Setup Instructions</h3>
+                <p style="margin:0 0 8px">TV Stations provides channels via its own M3U and XMLTV endpoints. You need to add these once in Jellyfin's Live TV settings:</p>
+                <ol style="margin:0 0 8px;padding-left:20px">
+                    <li>Go to <strong>Dashboard → Live TV → TV Tuners → Add Tuner Device</strong> → choose <strong>M3U Tuner</strong></li>
+                    <li>Enter this URL as the M3U file location:<br>
+                        <code id="m3uUrl" style="background:#111;padding:3px 6px;border-radius:3px;user-select:all"></code>
+                    </li>
+                    <li>Save the tuner, then go to <strong>TV Guide Data Providers → Add Guide Provider</strong> → choose <strong>XMLTV</strong></li>
+                    <li>Enter this URL:<br>
+                        <code id="xmltvUrl" style="background:#111;padding:3px 6px;border-radius:3px;user-select:all"></code>
+                    </li>
+                    <li>Save, then run <strong>Scheduled Tasks → Refresh Guide</strong> to load channels immediately.</li>
+                </ol>
+            </div>
+
+            <form id="TvStationsConfigForm">
                 <div class="inputContainer">
                     <label class="emby-checkbox-label">
                         <input id="chkEnableMovies" type="checkbox" is="emby-checkbox" />
@@ -55,6 +70,10 @@
         var TvStationsConfig = {
             pluginUniqueId: 'a8b4c6d2-1e3f-4a5b-8c7d-9e0f1a2b3c4d'
         };
+
+        var origin = window.location.origin;
+        document.getElementById('m3uUrl').textContent = origin + '/tvstations/m3u';
+        document.getElementById('xmltvUrl').textContent = origin + '/tvstations/xmltv';
 
         document.querySelector('#TvStationsConfigPage').addEventListener('pageshow', function () {
             Dashboard.showLoadingMsg();
