@@ -1,16 +1,11 @@
-using Jellyfin.Plugin.TvStations.LiveTv;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Plugins;
-using MediaBrowser.Controller;
-using MediaBrowser.Controller.LiveTv;
-using MediaBrowser.Controller.Plugins;
 using MediaBrowser.Model.Plugins;
 using MediaBrowser.Model.Serialization;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Jellyfin.Plugin.TvStations;
 
-public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages, IPluginServiceRegistrator
+public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
 {
     public static readonly Guid PluginGuid = new("a8b4c6d2-1e3f-4a5b-8c7d-9e0f1a2b3c4d");
 
@@ -38,10 +33,5 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages, IPluginServ
                 EmbeddedResourcePath = $"{GetType().Namespace}.Configuration.configPage.html"
             }
         };
-    }
-
-    public void RegisterServices(IServiceCollection serviceCollection, IServerApplicationHost applicationHost)
-    {
-        serviceCollection.AddSingleton<ILiveTvService, TvStationsService>();
     }
 }
