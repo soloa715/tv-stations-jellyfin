@@ -95,23 +95,35 @@ public sealed class TvStationsController : ControllerBase
 
         foreach (var channel in channels)
         {
-            var programs = await _service.GetProgramsAsync(
-                channel.Id, windowStart, windowEnd, cancellationToken);
+            var schedule = _service.GetScheduleForChannel(channel.Id, windowStart, windowEnd);
 
-            foreach (var p in programs)
+            foreach (var s in schedule)
             {
-                var start = p.StartDate.ToString("yyyyMMddHHmmss") + " +0000";
-                var stop = p.EndDate.ToString("yyyyMMddHHmmss") + " +0000";
+                var item = s.Item;
+                var start = s.StartUtc.ToString("yyyyMMddHHmmss") + " +0000";
+                var stop = s.EndUtc.ToString("yyyyMMddHHmmss") + " +0000";
+                var iconUrl = $"{baseUrl}/tvstations/itemimage/{item.Id}";
                 sb.Append($"  <programme start=\"{start}\" stop=\"{stop}\" channel=\"{Escape(channel.Id)}\">\n");
-                sb.Append($"    <title lang=\"en\">{Escape(p.Name)}</title>\n");
-                if (!string.IsNullOrEmpty(p.Overview))
-                    sb.Append($"    <desc lang=\"en\">{Escape(p.Overview)}</desc>\n");
+                sb.Append($"    <title lang=\"en\">{Escape(TvStationsService.FormatItemName(item))}</title>\n");
+                if (!string.IsNullOrEmpty(item.Overview))
+                    sb.Append($"    <desc lang=\"en\">{Escape(item.Overview)}</desc>\n");
+                sb.Append($"    <icon src=\"{iconUrl}\"/>\n");
                 sb.Append("  </programme>\n");
             }
         }
 
         sb.Append("</tv>\n");
         return Content(sb.ToString(), "application/xml", Encoding.UTF8);
+    }
+
+    /// <summary>Serves the primary image for a specific library item by its Jellyfin ID.</summary>
+    [HttpGet("itemimage/{itemId:guid}")]
+    public IActionResult GetItemImage(Guid itemId)
+    {
+        var imagePath = _service.GetItemImagePathById(itemId);
+        if (imagePath is null || !System.IO.File.Exists(imagePath))
+            return NotFound();
+        return PhysicalFile(imagePath, GetImageMimeType(imagePath));
     }
 
     /// <summary>Serves the primary image of the currently playing item for a channel.</summary>

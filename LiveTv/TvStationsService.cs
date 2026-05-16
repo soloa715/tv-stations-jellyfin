@@ -417,7 +417,7 @@ public sealed class TvStationsService
             ImageUrl = imageUrl
         };
 
-    private static string FormatItemName(BaseItem item)
+    internal static string FormatItemName(BaseItem item)
     {
         if (item is Episode episode)
         {
@@ -439,6 +439,32 @@ public sealed class TvStationsService
         {
             var imgInfo = item.GetImageInfo(ImageType.Primary, 0);
             return imgInfo?.Path;
+        }
+        return null;
+    }
+
+    internal IReadOnlyList<ScheduledItem> GetScheduleForChannel(
+        string channelId, DateTime startDateUtc, DateTime endDateUtc)
+    {
+        var items = GetItemsForChannel(channelId);
+        if (items.Count == 0)
+            return Array.Empty<ScheduledItem>();
+        return ChannelScheduler.GetSchedule(items, startDateUtc, endDateUtc).ToList();
+    }
+
+    internal string? GetItemImagePathById(Guid itemId)
+    {
+        var item = _libraryManager.GetItemById(itemId);
+        if (item is null)
+            return null;
+        var path = GetItemImagePath(item);
+        if (path is not null)
+            return path;
+        if (item is Episode episode)
+        {
+            var series = episode.Series;
+            if (series is not null)
+                return GetItemImagePath(series);
         }
         return null;
     }
