@@ -15,11 +15,19 @@ public sealed class TvStationsService : ILiveTvService
 {
     private const string ChannelMoviePrefix = "tvstations-movies-";
     private const string ChannelShowPrefix = "tvstations-shows-";
-    private const int MovieChannelBase = 100;
-    private const int ShowChannelBase = 200;
+    private const string ChannelRecentMovies = "tvstations-recent-movies";
+    private const string ChannelRecentShows = "tvstations-recent-shows";
+    private const string ChannelTopRatedMovies = "tvstations-toprated-movies";
+    private const string ChannelTopRatedShows = "tvstations-toprated-shows";
+    private const string ChannelDecadePrefix = "tvstations-decade-";
+    private const string ChannelCollectionPrefix = "tvstations-collection-";
 
     private readonly ILibraryManager _libraryManager;
     private readonly ILogger<TvStationsService> _logger;
+
+    private readonly Dictionary<string, (IReadOnlyList<BaseItem> Items, DateTime Expiry)> _itemCache = new();
+    private readonly Dictionary<string, (List<string> Genres, DateTime Expiry)> _genreCache = new();
+    private readonly object _cacheLock = new();
 
     public TvStationsService(ILibraryManager libraryManager, ILogger<TvStationsService> logger)
     {
@@ -32,56 +40,104 @@ public sealed class TvStationsService : ILiveTvService
     public string HomePageUrl => "https://github.com/soloa715/tv-stations-jellyfin";
 
     public Task<IEnumerable<ChannelInfo>> GetChannelsAsync(CancellationToken cancellationToken)
+        => Task.FromResult(BuildChannels(includeDisabled: false));
+
+    internal IEnumerable<ChannelInfo> GetAllChannelsIncludingDisabled()
+        => BuildChannels(includeDisabled: true);
+
+    private IEnumerable<ChannelInfo> BuildChannels(bool includeDisabled)
     {
         var config = Plugin.Instance?.Configuration ?? new PluginConfiguration();
         var channels = new List<ChannelInfo>();
 
         if (config.EnableMovies)
-        {
-            var movieGenres = GetGenresForKind(BaseItemKind.Movie);
-            int idx = 0;
-            foreach (var genre in movieGenres.Take(config.MaxGenresPerType))
-            {
-                var items = GetItemsForGenre(BaseItemKind.Movie, genre);
-                if (items.Count < config.MinItemsPerChannel)
-                    continue;
-
-                channels.Add(new ChannelInfo
-                {
-                    Id = ChannelMoviePrefix + ToSlug(genre),
-                    Name = genre + " Movies",
-                    Number = (MovieChannelBase + idx).ToString(),
-                    ChannelType = ChannelType.TV,
-                    ImageUrl = GetGenreImageUrl(BaseItemKind.Movie, genre)
-                });
-                idx++;
-            }
-        }
+            BuildGenreChannels(channels, BaseItemKind.Movie, ChannelMoviePrefix, "Movies", config.MovieChannelStart, config);
 
         if (config.EnableShows)
-        {
-            var showGenres = GetGenresForKind(BaseItemKind.Episode);
-            int idx = 0;
-            foreach (var genre in showGenres.Take(config.MaxGenresPerType))
-            {
-                var items = GetItemsForGenre(BaseItemKind.Episode, genre);
-                if (items.Count < config.MinItemsPerChannel)
-                    continue;
+            BuildGenreChannels(channels, BaseItemKind.Episode, ChannelShowPrefix, "Shows", config.ShowChannelStart, config);
 
-                channels.Add(new ChannelInfo
+        if (config.EnableRecentlyAdded)
+        {
+            TryAddChannel(channels, ChannelRecentMovies, "Recently Added Movies",
+                config.RecentlyAddedChannelStart, config,
+                () => QueryRecentlyAdded(BaseItemKind.Movie));
+
+            TryAddChannel(channels, ChannelRecentShows, "Recently Added Shows",
+                config.RecentlyAddedChannelStart + 1, config,
+                () => QueryRecentlyAdded(BaseItemKind.Episode));
+        }
+
+        if (config.EnableTopRated)
+        {
+            TryAddChannel(channels, ChannelTopRatedMovies, "Top Rated Movies",
+                config.TopRatedChannelStart, config,
+                () => QueryTopRated(BaseItemKind.Movie));
+
+            TryAddChannel(channels, ChannelTopRatedShows, "Top Rated Shows",
+                config.TopRatedChannelStart + 1, config,
+                () => QueryTopRated(BaseItemKind.Episode));
+        }
+
+        if (config.EnableDecadeChannels)
+        {
+            int[] decades = { 1970, 1980, 1990, 2000, 2010, 2020 };
+            int decadeIdx = 0;
+            foreach (var decade in decades)
+            {
+                var d = decade;
+                var items = GetItemsCached($"decade-{d}", () => QueryByDecade(d));
+                if (items.Count >= config.MinItemsPerChannel)
                 {
-                    Id = ChannelShowPrefix + ToSlug(genre),
-                    Name = genre + " Shows",
-                    Number = (ShowChannelBase + idx).ToString(),
-                    ChannelType = ChannelType.TV,
-                    ImageUrl = GetGenreImageUrl(BaseItemKind.Episode, genre)
-                });
-                idx++;
+                    channels.Add(MakeChannel(
+                        $"{ChannelDecadePrefix}{d}s",
+                        $"{d}s",
+                        (config.DecadeChannelStart + decadeIdx).ToString(),
+                        GetFirstImageUrl(items)));
+                    decadeIdx++;
+                }
             }
         }
 
+        if (config.EnableCollections)
+        {
+            var collections = GetItemsCached("collections-list", QueryCollections);
+            int colIdx = 0;
+            foreach (var collection in collections.Take(config.MaxGenresPerType))
+            {
+                var slug = ToSlug(collection.Name ?? "unknown");
+                var colId = collection.Id;
+                var items = GetItemsCached($"collection-{slug}", () => QueryCollectionItems(colId));
+                if (items.Count >= config.MinItemsPerChannel)
+                {
+                    channels.Add(MakeChannel(
+                        $"{ChannelCollectionPrefix}{slug}",
+                        collection.Name ?? "Unknown Collection",
+                        (config.CollectionChannelStart + colIdx).ToString(),
+                        GetFirstImageUrl(items)));
+                    colIdx++;
+                }
+            }
+        }
+
+        if (!includeDisabled)
+        {
+            var disabled = new HashSet<string>(
+                config.DisabledChannels ?? new List<string>(),
+                StringComparer.OrdinalIgnoreCase);
+            channels = channels.Where(c => !disabled.Contains(c.Id)).ToList();
+        }
+
+        var nameMap = (config.ChannelNameOverrides ?? new List<StringPair>())
+            .ToDictionary(p => p.Key, p => p.Value, StringComparer.OrdinalIgnoreCase);
+
+        channels = channels
+            .Select(c => nameMap.TryGetValue(c.Id, out var customName)
+                ? MakeChannel(c.Id, customName, c.Number ?? string.Empty, c.ImageUrl)
+                : c)
+            .ToList();
+
         _logger.LogInformation("TV Stations: providing {Count} channels", channels.Count);
-        return Task.FromResult<IEnumerable<ChannelInfo>>(channels);
+        return channels;
     }
 
     public Task<IEnumerable<ProgramInfo>> GetProgramsAsync(
@@ -96,7 +152,9 @@ public sealed class TvStationsService : ILiveTvService
         if (items.Count == 0)
             return Task.FromResult<IEnumerable<ProgramInfo>>(programs);
 
-        var isMovie = channelId.StartsWith(ChannelMoviePrefix, StringComparison.OrdinalIgnoreCase);
+        var isMovie = channelId.StartsWith(ChannelMoviePrefix, StringComparison.OrdinalIgnoreCase)
+            || channelId.Equals(ChannelRecentMovies, StringComparison.OrdinalIgnoreCase)
+            || channelId.Equals(ChannelTopRatedMovies, StringComparison.OrdinalIgnoreCase);
 
         foreach (var scheduled in ChannelScheduler.GetSchedule(items, startDateUtc, endDateUtc))
         {
@@ -138,11 +196,8 @@ public sealed class TvStationsService : ILiveTvService
         return Task.FromResult(source);
     }
 
-    public Task CloseLiveStream(string id, CancellationToken cancellationToken)
-        => Task.CompletedTask;
-
-    public Task ResetTuner(string id, CancellationToken cancellationToken)
-        => Task.CompletedTask;
+    public Task CloseLiveStream(string id, CancellationToken cancellationToken) => Task.CompletedTask;
+    public Task ResetTuner(string id, CancellationToken cancellationToken) => Task.CompletedTask;
 
     public Task<SeriesTimerInfo> GetNewTimerDefaultsAsync(CancellationToken cancellationToken, ProgramInfo? program = null)
         => Task.FromResult(new SeriesTimerInfo { RecordNewOnly = true });
@@ -153,60 +208,142 @@ public sealed class TvStationsService : ILiveTvService
     public Task<IEnumerable<SeriesTimerInfo>> GetSeriesTimersAsync(CancellationToken cancellationToken)
         => Task.FromResult(Enumerable.Empty<SeriesTimerInfo>());
 
-    public Task CreateTimerAsync(TimerInfo info, CancellationToken cancellationToken)
-        => Task.CompletedTask;
-
-    public Task CreateSeriesTimerAsync(SeriesTimerInfo info, CancellationToken cancellationToken)
-        => Task.CompletedTask;
-
-    public Task UpdateTimerAsync(TimerInfo updatedTimer, CancellationToken cancellationToken)
-        => Task.CompletedTask;
-
-    public Task UpdateSeriesTimerAsync(SeriesTimerInfo updatedTimer, CancellationToken cancellationToken)
-        => Task.CompletedTask;
-
-    public Task CancelTimerAsync(string timerId, CancellationToken cancellationToken)
-        => Task.CompletedTask;
-
-    public Task CancelSeriesTimerAsync(string timerId, CancellationToken cancellationToken)
-        => Task.CompletedTask;
+    public Task CreateTimerAsync(TimerInfo info, CancellationToken cancellationToken) => Task.CompletedTask;
+    public Task CreateSeriesTimerAsync(SeriesTimerInfo info, CancellationToken cancellationToken) => Task.CompletedTask;
+    public Task UpdateTimerAsync(TimerInfo updatedTimer, CancellationToken cancellationToken) => Task.CompletedTask;
+    public Task UpdateSeriesTimerAsync(SeriesTimerInfo updatedTimer, CancellationToken cancellationToken) => Task.CompletedTask;
+    public Task CancelTimerAsync(string timerId, CancellationToken cancellationToken) => Task.CompletedTask;
+    public Task CancelSeriesTimerAsync(string timerId, CancellationToken cancellationToken) => Task.CompletedTask;
 
     internal IReadOnlyList<BaseItem> GetItemsForChannel(string channelId)
     {
+        var config = Plugin.Instance?.Configuration ?? new PluginConfiguration();
+        IReadOnlyList<BaseItem> items;
+
         if (channelId.StartsWith(ChannelMoviePrefix, StringComparison.OrdinalIgnoreCase))
         {
             var genre = FromSlug(channelId[ChannelMoviePrefix.Length..]);
-            return GetItemsForGenre(BaseItemKind.Movie, genre);
+            items = GetItemsCached($"genre-movie-{genre}", () => QueryByGenre(BaseItemKind.Movie, genre));
         }
-
-        if (channelId.StartsWith(ChannelShowPrefix, StringComparison.OrdinalIgnoreCase))
+        else if (channelId.StartsWith(ChannelShowPrefix, StringComparison.OrdinalIgnoreCase))
         {
             var genre = FromSlug(channelId[ChannelShowPrefix.Length..]);
-            return GetItemsForGenre(BaseItemKind.Episode, genre);
+            items = GetItemsCached($"genre-show-{genre}", () => QueryByGenre(BaseItemKind.Episode, genre));
+        }
+        else if (channelId.Equals(ChannelRecentMovies, StringComparison.OrdinalIgnoreCase))
+        {
+            items = GetItemsCached("recent-movies", () => QueryRecentlyAdded(BaseItemKind.Movie));
+        }
+        else if (channelId.Equals(ChannelRecentShows, StringComparison.OrdinalIgnoreCase))
+        {
+            items = GetItemsCached("recent-shows", () => QueryRecentlyAdded(BaseItemKind.Episode));
+        }
+        else if (channelId.Equals(ChannelTopRatedMovies, StringComparison.OrdinalIgnoreCase))
+        {
+            items = GetItemsCached("toprated-movies", () => QueryTopRated(BaseItemKind.Movie));
+        }
+        else if (channelId.Equals(ChannelTopRatedShows, StringComparison.OrdinalIgnoreCase))
+        {
+            items = GetItemsCached("toprated-shows", () => QueryTopRated(BaseItemKind.Episode));
+        }
+        else if (channelId.StartsWith(ChannelDecadePrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            var decadeStr = channelId[ChannelDecadePrefix.Length..].TrimEnd('s');
+            items = int.TryParse(decadeStr, out var decade)
+                ? GetItemsCached($"decade-{decade}", () => QueryByDecade(decade))
+                : Array.Empty<BaseItem>();
+        }
+        else if (channelId.StartsWith(ChannelCollectionPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            var slug = channelId[ChannelCollectionPrefix.Length..];
+            items = GetItemsCached($"collection-{slug}", () => QueryCollectionBySlug(slug));
+        }
+        else
+        {
+            items = Array.Empty<BaseItem>();
         }
 
-        return Array.Empty<BaseItem>();
+        if (config.ShuffleChannels && items.Count > 0)
+            items = ChannelScheduler.ShuffleItems(items, channelId);
+
+        return items;
     }
 
-    private List<string> GetGenresForKind(BaseItemKind kind)
+    private void TryAddChannel(
+        List<ChannelInfo> channels,
+        string id,
+        string name,
+        int number,
+        PluginConfiguration config,
+        Func<IReadOnlyList<BaseItem>> factory)
     {
-        var query = new InternalItemsQuery
-        {
-            IncludeItemTypes = new[] { kind },
-            IsVirtualItem = false,
-            Recursive = true
-        };
-
-        var result = _libraryManager.GetItemsResult(query);
-        return result.Items
-            .SelectMany(i => i.Genres ?? Array.Empty<string>())
-            .Where(g => !string.IsNullOrWhiteSpace(g))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(g => g, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        var items = GetItemsCached(id, factory);
+        if (items.Count >= config.MinItemsPerChannel)
+            channels.Add(MakeChannel(id, name, number.ToString(), GetFirstImageUrl(items)));
     }
 
-    private IReadOnlyList<BaseItem> GetItemsForGenre(BaseItemKind kind, string genre)
+    internal IReadOnlyList<BaseItem> GetItemsForChannel(string channelId)
+    {
+        var genres = GetGenresCached($"genres-{kind}", () =>
+        {
+            var q = new InternalItemsQuery
+            {
+                IncludeItemTypes = new[] { kind },
+                IsVirtualItem = false,
+                Recursive = true
+            };
+            return _libraryManager.GetItemsResult(q).Items
+                .SelectMany(i => i.Genres ?? Array.Empty<string>())
+                .Where(g => !string.IsNullOrWhiteSpace(g))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(g => g, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        });
+
+        int idx = 0;
+        foreach (var genre in genres.Take(config.MaxGenresPerType))
+        {
+            var g = genre;
+            var items = GetItemsCached($"genre-{kind}-{g}", () => QueryByGenre(kind, g));
+            if (items.Count < config.MinItemsPerChannel)
+                continue;
+
+            channels.Add(MakeChannel(
+                prefix + ToSlug(g),
+                $"{g} {suffix}",
+                (baseNumber + idx).ToString(),
+                GetFirstImageUrl(items)));
+            idx++;
+        }
+    }
+
+    private IReadOnlyList<BaseItem> GetItemsCached(string key, Func<IReadOnlyList<BaseItem>> factory)
+    {
+        var expiry = TimeSpan.FromMinutes(Plugin.Instance?.Configuration.CacheExpiryMinutes ?? 15);
+        lock (_cacheLock)
+        {
+            if (_itemCache.TryGetValue(key, out var cached) && DateTime.UtcNow < cached.Expiry)
+                return cached.Items;
+            var result = factory();
+            _itemCache[key] = (result, DateTime.UtcNow + expiry);
+            return result;
+        }
+    }
+
+    private List<string> GetGenresCached(string key, Func<List<string>> factory)
+    {
+        var expiry = TimeSpan.FromMinutes(Plugin.Instance?.Configuration.CacheExpiryMinutes ?? 15);
+        lock (_cacheLock)
+        {
+            if (_genreCache.TryGetValue(key, out var cached) && DateTime.UtcNow < cached.Expiry)
+                return cached.Genres;
+            var result = factory();
+            _genreCache[key] = (result, DateTime.UtcNow + expiry);
+            return result;
+        }
+    }
+
+    private IReadOnlyList<BaseItem> QueryByGenre(BaseItemKind kind, string genre)
     {
         var query = new InternalItemsQuery
         {
@@ -215,12 +352,94 @@ public sealed class TvStationsService : ILiveTvService
             Recursive = true,
             Genres = new[] { genre }
         };
-
-        var result = _libraryManager.GetItemsResult(query);
-        return result.Items
+        return _libraryManager.GetItemsResult(query).Items
             .Where(i => !string.IsNullOrEmpty(i.Path))
             .OrderBy(i => i.SortName, StringComparer.OrdinalIgnoreCase)
             .ToList();
+    }
+
+    private IReadOnlyList<BaseItem> QueryRecentlyAdded(BaseItemKind kind)
+    {
+        var query = new InternalItemsQuery
+        {
+            IncludeItemTypes = new[] { kind },
+            IsVirtualItem = false,
+            Recursive = true,
+            MinDateLastSaved = DateTime.UtcNow.AddDays(-90),
+            Limit = 200
+        };
+        return _libraryManager.GetItemsResult(query).Items
+            .Where(i => !string.IsNullOrEmpty(i.Path))
+            .OrderByDescending(i => i.DateCreated)
+            .ToList();
+    }
+
+    private IReadOnlyList<BaseItem> QueryTopRated(BaseItemKind kind)
+    {
+        var query = new InternalItemsQuery
+        {
+            IncludeItemTypes = new[] { kind },
+            IsVirtualItem = false,
+            Recursive = true,
+            MinCommunityRating = 7.5,
+            Limit = 100
+        };
+        return _libraryManager.GetItemsResult(query).Items
+            .Where(i => !string.IsNullOrEmpty(i.Path))
+            .OrderByDescending(i => i.CommunityRating)
+            .ToList();
+    }
+
+    private IReadOnlyList<BaseItem> QueryByDecade(int decade)
+    {
+        var query = new InternalItemsQuery
+        {
+            IncludeItemTypes = new[] { BaseItemKind.Movie, BaseItemKind.Episode },
+            IsVirtualItem = false,
+            Recursive = true,
+            MinPremiereDate = new DateTime(decade, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            MaxPremiereDate = new DateTime(decade + 9, 12, 31, 23, 59, 59, DateTimeKind.Utc)
+        };
+        return _libraryManager.GetItemsResult(query).Items
+            .Where(i => !string.IsNullOrEmpty(i.Path))
+            .OrderBy(i => i.PremiereDate)
+            .ToList();
+    }
+
+    private IReadOnlyList<BaseItem> QueryCollections()
+    {
+        var query = new InternalItemsQuery
+        {
+            IncludeItemTypes = new[] { BaseItemKind.BoxSet },
+            IsVirtualItem = false,
+            Recursive = true
+        };
+        return _libraryManager.GetItemsResult(query).Items
+            .OrderBy(i => i.SortName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private IReadOnlyList<BaseItem> QueryCollectionItems(Guid collectionId)
+    {
+        var query = new InternalItemsQuery
+        {
+            ParentId = collectionId,
+            IsVirtualItem = false,
+            Recursive = true
+        };
+        return _libraryManager.GetItemsResult(query).Items
+            .Where(i => !string.IsNullOrEmpty(i.Path))
+            .OrderBy(i => i.SortName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private IReadOnlyList<BaseItem> QueryCollectionBySlug(string slug)
+    {
+        var collections = GetItemsCached("collections-list", QueryCollections);
+        var match = collections.FirstOrDefault(c => ToSlug(c.Name ?? string.Empty) == slug);
+        return match is not null
+            ? QueryCollectionItems(match.Id)
+            : Array.Empty<BaseItem>();
     }
 
     private MediaSourceInfo? BuildMediaSource(string channelId)
@@ -279,20 +498,8 @@ public sealed class TvStationsService : ILiveTvService
         return null;
     }
 
-    private string? GetGenreImageUrl(BaseItemKind kind, string genre)
-    {
-        var query = new InternalItemsQuery
-        {
-            IncludeItemTypes = new[] { kind },
-            IsVirtualItem = false,
-            Recursive = true,
-            Genres = new[] { genre },
-            Limit = 1
-        };
-
-        var item = _libraryManager.GetItemsResult(query).Items.FirstOrDefault();
-        return item is not null ? GetItemImageUrl(item) : null;
-    }
+    private string? GetFirstImageUrl(IReadOnlyList<BaseItem> items)
+        => items.Select(GetItemImageUrl).FirstOrDefault(u => u is not null);
 
     private static string ToSlug(string genre)
         => genre.ToLowerInvariant()

@@ -61,30 +61,58 @@ public static class ChannelScheduler
         if (items.Count == 0)
             yield break;
 
-        var totalTicks = items.Sum(i => GetRunTimeTicks(i));
+        var totalTicks = items.Sum(GetRunTimeTicks);
         if (totalTicks <= 0)
             yield break;
 
-        var current = GetCurrentItem(items, windowStart);
-        if (current is null)
-            yield break;
+        var elapsedAtWindow = (long)((windowStart - Epoch).TotalSeconds * TimeSpan.TicksPerSecond) % totalTicks;
+        if (elapsedAtWindow < 0) elapsedAtWindow += totalTicks;
 
-        var cursor = current.StartUtc;
+        // Find the item playing at windowStart and the offset into it
+        long accumulated = 0;
+        int startIdx = 0;
+        long offsetIntoItem = 0;
+        for (int i = 0; i < items.Count; i++)
+        {
+            var dur = GetRunTimeTicks(items[i]);
+            if (dur <= 0) continue;
+            if (accumulated + dur > elapsedAtWindow)
+            {
+                startIdx = i;
+                offsetIntoItem = elapsedAtWindow - accumulated;
+                break;
+            }
+            accumulated += dur;
+        }
+
+        var cursor = windowStart - TimeSpan.FromTicks(offsetIntoItem);
+        int idx = startIdx;
 
         while (cursor < windowEnd)
         {
-            var item = GetCurrentItem(items, cursor + TimeSpan.FromSeconds(1));
-            if (item is null)
-                break;
+            var item = items[idx % items.Count];
+            var dur = TimeSpan.FromTicks(GetRunTimeTicks(item));
+            var end = cursor + dur;
 
-            if (item.EndUtc > windowStart)
-                yield return item;
+            if (end > windowStart)
+                yield return new ScheduledItem { Item = item, StartUtc = cursor, EndUtc = end };
 
-            cursor = item.EndUtc;
-
-            if (cursor >= windowEnd)
-                break;
+            cursor = end;
+            idx++;
         }
+    }
+
+    public static IReadOnlyList<BaseItem> ShuffleItems(IReadOnlyList<BaseItem> items, string channelId)
+    {
+        var list = items.ToList();
+        var seed = channelId.Aggregate(0, (acc, c) => acc * 31 + c);
+        var rng = new Random(seed);
+        for (int i = list.Count - 1; i > 0; i--)
+        {
+            int j = rng.Next(i + 1);
+            (list[i], list[j]) = (list[j], list[i]);
+        }
+        return list;
     }
 
     private static long GetRunTimeTicks(BaseItem item)
