@@ -35,12 +35,14 @@ public sealed class TvStationsController : ControllerBase
         var sb = new StringBuilder("#EXTM3U\n");
         foreach (var channel in channels)
         {
+            var escapedId = Uri.EscapeDataString(channel.Id);
             sb.Append($"#EXTINF:-1 tvg-id=\"{channel.Id}\"");
             sb.Append($" tvg-name=\"{channel.Name}\"");
             sb.Append($" tvg-chno=\"{channel.Number}\"");
+            sb.Append($" tvg-logo=\"{baseUrl}/tvstations/image/{escapedId}\"");
             sb.Append($" group-title=\"TV Stations\"");
             sb.Append($",{channel.Name}\n");
-            sb.Append($"{baseUrl}/tvstations/stream/{Uri.EscapeDataString(channel.Id)}\n");
+            sb.Append($"{baseUrl}/tvstations/stream/{escapedId}\n");
         }
 
         return Content(sb.ToString(), "audio/x-mpegurl", Encoding.UTF8);
@@ -81,10 +83,13 @@ public sealed class TvStationsController : ControllerBase
         sb.Append("<!DOCTYPE tv SYSTEM \"xmltv.dtd\">\n");
         sb.Append("<tv generator-info-name=\"TV Stations Plugin\">\n");
 
+        var baseUrl = $"{Request.Scheme}://{Request.Host}";
         foreach (var channel in channels)
         {
+            var logoUrl = $"{baseUrl}/tvstations/image/{Uri.EscapeDataString(channel.Id)}";
             sb.Append($"  <channel id=\"{Escape(channel.Id)}\">");
             sb.Append($"<display-name>{Escape(channel.Name)}</display-name>");
+            sb.Append($"<icon src=\"{logoUrl}\"/>");
             sb.Append("</channel>\n");
         }
 
@@ -107,6 +112,20 @@ public sealed class TvStationsController : ControllerBase
 
         sb.Append("</tv>\n");
         return Content(sb.ToString(), "application/xml", Encoding.UTF8);
+    }
+
+    /// <summary>Redirects to the primary image of the currently playing item for a channel.</summary>
+    [HttpGet("image/{channelId}")]
+    public IActionResult GetChannelImage(string channelId)
+    {
+        channelId = Uri.UnescapeDataString(channelId);
+        var items = _service.GetItemsForChannel(channelId);
+        if (items.Count == 0)
+            return NotFound();
+
+        var scheduled = ChannelScheduler.GetCurrentItem(items, DateTime.UtcNow);
+        var item = scheduled?.Item ?? items[0];
+        return Redirect($"/Items/{item.Id}/Images/Primary");
     }
 
     /// <summary>Returns a JSON list of all channels including disabled status and item counts.</summary>

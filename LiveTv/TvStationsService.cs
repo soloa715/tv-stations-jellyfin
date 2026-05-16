@@ -3,15 +3,13 @@ using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.LiveTv;
-using MediaBrowser.Model.Dto;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.LiveTv;
-using MediaBrowser.Model.MediaInfo;
 using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.TvStations.LiveTv;
 
-public sealed class TvStationsService : ILiveTvService
+public sealed class TvStationsService
 {
     private const string ChannelMoviePrefix = "tvstations-movies-";
     private const string ChannelShowPrefix = "tvstations-shows-";
@@ -34,10 +32,6 @@ public sealed class TvStationsService : ILiveTvService
         _libraryManager = libraryManager;
         _logger = logger;
     }
-
-    public string Name => "TV Stations";
-
-    public string HomePageUrl => "https://github.com/soloa715/tv-stations-jellyfin";
 
     public Task<IEnumerable<ChannelInfo>> GetChannelsAsync(CancellationToken cancellationToken)
         => Task.FromResult(BuildChannels(includeDisabled: false));
@@ -179,41 +173,6 @@ public sealed class TvStationsService : ILiveTvService
 
         return Task.FromResult<IEnumerable<ProgramInfo>>(programs);
     }
-
-    public Task<List<MediaSourceInfo>> GetChannelStreamMediaSources(string channelId, CancellationToken cancellationToken)
-    {
-        var source = BuildMediaSource(channelId);
-        return Task.FromResult(source is not null
-            ? new List<MediaSourceInfo> { source }
-            : new List<MediaSourceInfo>());
-    }
-
-    public Task<MediaSourceInfo> GetChannelStream(string channelId, string streamId, CancellationToken cancellationToken)
-    {
-        var source = BuildMediaSource(channelId);
-        if (source is null)
-            throw new InvalidOperationException($"No stream available for channel {channelId}");
-        return Task.FromResult(source);
-    }
-
-    public Task CloseLiveStream(string id, CancellationToken cancellationToken) => Task.CompletedTask;
-    public Task ResetTuner(string id, CancellationToken cancellationToken) => Task.CompletedTask;
-
-    public Task<SeriesTimerInfo> GetNewTimerDefaultsAsync(CancellationToken cancellationToken, ProgramInfo? program = null)
-        => Task.FromResult(new SeriesTimerInfo { RecordNewOnly = true });
-
-    public Task<IEnumerable<TimerInfo>> GetTimersAsync(CancellationToken cancellationToken)
-        => Task.FromResult(Enumerable.Empty<TimerInfo>());
-
-    public Task<IEnumerable<SeriesTimerInfo>> GetSeriesTimersAsync(CancellationToken cancellationToken)
-        => Task.FromResult(Enumerable.Empty<SeriesTimerInfo>());
-
-    public Task CreateTimerAsync(TimerInfo info, CancellationToken cancellationToken) => Task.CompletedTask;
-    public Task CreateSeriesTimerAsync(SeriesTimerInfo info, CancellationToken cancellationToken) => Task.CompletedTask;
-    public Task UpdateTimerAsync(TimerInfo updatedTimer, CancellationToken cancellationToken) => Task.CompletedTask;
-    public Task UpdateSeriesTimerAsync(SeriesTimerInfo updatedTimer, CancellationToken cancellationToken) => Task.CompletedTask;
-    public Task CancelTimerAsync(string timerId, CancellationToken cancellationToken) => Task.CompletedTask;
-    public Task CancelSeriesTimerAsync(string timerId, CancellationToken cancellationToken) => Task.CompletedTask;
 
     internal IReadOnlyList<BaseItem> GetItemsForChannel(string channelId)
     {
@@ -446,36 +405,6 @@ public sealed class TvStationsService : ILiveTvService
         return match is not null
             ? QueryCollectionItems(match.Id)
             : Array.Empty<BaseItem>();
-    }
-
-    private MediaSourceInfo? BuildMediaSource(string channelId)
-    {
-        var items = GetItemsForChannel(channelId);
-        if (items.Count == 0)
-            return null;
-
-        var scheduled = ChannelScheduler.GetCurrentItem(items, DateTime.UtcNow);
-        if (scheduled is null)
-            return null;
-
-        var item = scheduled.Item;
-        if (string.IsNullOrEmpty(item.Path))
-            return null;
-
-        return new MediaSourceInfo
-        {
-            Id = $"{channelId}-stream",
-            Path = item.Path,
-            Protocol = MediaProtocol.File,
-            IsRemote = false,
-            ReadAtNativeFramerate = false,
-            SupportsTranscoding = true,
-            SupportsDirectStream = true,
-            SupportsDirectPlay = true,
-            Name = item.Name ?? "Unknown",
-            Container = Path.GetExtension(item.Path).TrimStart('.'),
-            RunTimeTicks = item.RunTimeTicks
-        };
     }
 
     private static ChannelInfo MakeChannel(string id, string name, string number, string? imageUrl) =>
