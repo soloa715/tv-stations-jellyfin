@@ -114,19 +114,28 @@ public sealed class TvStationsController : ControllerBase
         return Content(sb.ToString(), "application/xml", Encoding.UTF8);
     }
 
-    /// <summary>Redirects to the primary image of the currently playing item for a channel.</summary>
+    /// <summary>Serves the primary image of the currently playing item for a channel.</summary>
     [HttpGet("image/{channelId}")]
     public IActionResult GetChannelImage(string channelId)
     {
         channelId = Uri.UnescapeDataString(channelId);
-        var items = _service.GetItemsForChannel(channelId);
-        if (items.Count == 0)
+        var imagePath = _service.GetChannelImagePath(channelId);
+
+        if (imagePath is null || !System.IO.File.Exists(imagePath))
             return NotFound();
 
-        var scheduled = ChannelScheduler.GetCurrentItem(items, DateTime.UtcNow);
-        var item = scheduled?.Item ?? items[0];
-        return Redirect($"/Items/{item.Id}/Images/Primary");
+        return PhysicalFile(imagePath, GetImageMimeType(imagePath));
     }
+
+    private static string GetImageMimeType(string path) =>
+        Path.GetExtension(path).ToLowerInvariant() switch
+        {
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            ".webp" => "image/webp",
+            ".gif" => "image/gif",
+            _ => "image/jpeg"
+        };
 
     /// <summary>Returns a JSON list of all channels including disabled status and item counts.</summary>
     [HttpGet("channels")]

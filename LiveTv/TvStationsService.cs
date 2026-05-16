@@ -443,6 +443,41 @@ public sealed class TvStationsService
         return null;
     }
 
+    internal string? GetChannelImagePath(string channelId)
+    {
+        var items = GetItemsForChannel(channelId);
+        if (items.Count == 0)
+            return null;
+
+        var scheduled = ChannelScheduler.GetCurrentItem(items, DateTime.UtcNow);
+        var item = scheduled?.Item ?? items[0];
+
+        var path = GetItemImagePath(item);
+        if (path is not null)
+            return path;
+
+        // For episodes fall back to series art
+        if (item is Episode episode)
+        {
+            var series = episode.Series;
+            if (series is not null)
+                return GetItemImagePath(series);
+        }
+
+        return null;
+    }
+
+    private static string? GetItemImagePath(BaseItem item)
+    {
+        if (item.HasImage(ImageType.Primary))
+        {
+            var info = item.GetImageInfo(ImageType.Primary, 0);
+            if (info?.Path is not null)
+                return info.Path;
+        }
+        return null;
+    }
+
     private string? GetFirstImageUrl(IReadOnlyList<BaseItem> items)
         => items.Select(GetItemImageUrl).FirstOrDefault(u => u is not null);
 
