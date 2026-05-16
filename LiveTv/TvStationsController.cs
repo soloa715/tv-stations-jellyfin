@@ -1,9 +1,16 @@
 using System.Text;
-using MediaBrowser.Controller.LiveTv;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Jellyfin.Plugin.TvStations.LiveTv;
+
+public record ChannelSummary(
+    string Id,
+    string Name,
+    string Number,
+    int ItemCount,
+    bool IsDisabled,
+    string? NameOverride);
 
 [ApiController]
 [Route("tvstations")]
@@ -100,6 +107,31 @@ public sealed class TvStationsController : ControllerBase
 
         sb.Append("</tv>\n");
         return Content(sb.ToString(), "application/xml", Encoding.UTF8);
+    }
+
+    /// <summary>Returns a JSON list of all channels including disabled status and item counts.</summary>
+    [HttpGet("channels")]
+    [Produces("application/json")]
+    public IActionResult GetChannels()
+    {
+        var config = Plugin.Instance?.Configuration ?? new PluginConfiguration();
+        var disabled = new HashSet<string>(
+            config.DisabledChannels ?? new List<string>(),
+            StringComparer.OrdinalIgnoreCase);
+        var overrides = (config.ChannelNameOverrides ?? new List<StringPair>())
+            .ToDictionary(p => p.Key, p => p.Value, StringComparer.OrdinalIgnoreCase);
+
+        var summaries = _service.GetAllChannelsIncludingDisabled()
+            .Select(c => new ChannelSummary(
+                c.Id,
+                c.Name,
+                c.Number ?? string.Empty,
+                _service.GetItemsForChannel(c.Id).Count,
+                disabled.Contains(c.Id),
+                overrides.TryGetValue(c.Id, out var o) ? o : null))
+            .ToList();
+
+        return Ok(summaries);
     }
 
     private static string GetMimeType(string path) =>
