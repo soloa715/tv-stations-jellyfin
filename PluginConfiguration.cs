@@ -23,6 +23,9 @@ public class PluginConfiguration : BasePluginConfiguration
         DecadeChannelStart = 320;
         CollectionChannelStart = 400;
         CacheExpiryMinutes = 15;
+        EpgWindowDays = 7;
+        RecentlyAddedDays = 90;
+        TopRatedMinRating = 7.5;
         ChannelNameOverrides = new List<StringPair>();
         DisabledChannels = new List<string>();
     }
@@ -44,6 +47,9 @@ public class PluginConfiguration : BasePluginConfiguration
     public int DecadeChannelStart { get; set; }
     public int CollectionChannelStart { get; set; }
     public int CacheExpiryMinutes { get; set; }
+    public int EpgWindowDays { get; set; }
+    public int RecentlyAddedDays { get; set; }
+    public double TopRatedMinRating { get; set; }
 
     public List<StringPair> ChannelNameOverrides { get; set; }
     public List<string> DisabledChannels { get; set; }

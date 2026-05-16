@@ -32,7 +32,7 @@ public sealed class TvStationsController : ControllerBase
         var channels = (await _service.GetChannelsAsync(cancellationToken)).ToList();
         var baseUrl = $"{Request.Scheme}://{Request.Host}";
 
-        var sb = new StringBuilder("#EXTM3U\n");
+        var sb = new StringBuilder($"#EXTM3U x-tvg-url=\"{baseUrl}/tvstations/xmltv\"\n");
         foreach (var channel in channels)
         {
             var escapedId = Uri.EscapeDataString(channel.Id);
@@ -40,7 +40,7 @@ public sealed class TvStationsController : ControllerBase
             sb.Append($" tvg-name=\"{channel.Name}\"");
             sb.Append($" tvg-chno=\"{channel.Number}\"");
             sb.Append($" tvg-logo=\"{baseUrl}/tvstations/image/{escapedId}\"");
-            sb.Append($" group-title=\"TV Stations\"");
+            sb.Append($" group-title=\"{GetGroupTitle(channel.Id)}\"");
             sb.Append($",{channel.Name}\n");
             sb.Append($"{baseUrl}/tvstations/stream/{escapedId}\n");
         }
@@ -68,15 +68,17 @@ public sealed class TvStationsController : ControllerBase
         return PhysicalFile(path, GetMimeType(path), enableRangeProcessing: true);
     }
 
-    /// <summary>Returns an XMLTV EPG covering the next 24 hours.</summary>
+    /// <summary>Returns an XMLTV EPG covering a configurable window (default 7 days).</summary>
     [HttpGet("xmltv")]
     [Produces("application/xml")]
     public async Task<IActionResult> GetXmlTv(CancellationToken cancellationToken)
     {
         var channels = (await _service.GetChannelsAsync(cancellationToken)).ToList();
         var now = DateTime.UtcNow;
+        var epgConfig = Plugin.Instance?.Configuration ?? new PluginConfiguration();
+        var epgDays = Math.Clamp(epgConfig.EpgWindowDays, 1, 14);
         var windowStart = now.AddHours(-1);
-        var windowEnd = now.AddHours(24);
+        var windowEnd = now.AddDays(epgDays);
 
         var sb = new StringBuilder();
         sb.Append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
@@ -123,6 +125,7 @@ public sealed class TvStationsController : ControllerBase
         var imagePath = _service.GetItemImagePathById(itemId);
         if (imagePath is null || !System.IO.File.Exists(imagePath))
             return NotFound();
+        Response.Headers["Cache-Control"] = "public, max-age=3600";
         return PhysicalFile(imagePath, GetImageMimeType(imagePath));
     }
 
@@ -136,8 +139,20 @@ public sealed class TvStationsController : ControllerBase
         if (imagePath is null || !System.IO.File.Exists(imagePath))
             return NotFound();
 
+        Response.Headers["Cache-Control"] = "public, max-age=3600";
         return PhysicalFile(imagePath, GetImageMimeType(imagePath));
     }
+
+    private static string GetGroupTitle(string channelId) => channelId switch
+    {
+        var id when id.StartsWith("tvstations-movies-", StringComparison.OrdinalIgnoreCase) => "TV Stations - Movies",
+        var id when id.StartsWith("tvstations-shows-", StringComparison.OrdinalIgnoreCase) => "TV Stations - Shows",
+        var id when id.StartsWith("tvstations-recent-", StringComparison.OrdinalIgnoreCase) => "TV Stations - Recently Added",
+        var id when id.StartsWith("tvstations-toprated-", StringComparison.OrdinalIgnoreCase) => "TV Stations - Top Rated",
+        var id when id.StartsWith("tvstations-decade-", StringComparison.OrdinalIgnoreCase) => "TV Stations - Decades",
+        var id when id.StartsWith("tvstations-collection-", StringComparison.OrdinalIgnoreCase) => "TV Stations - Collections",
+        _ => "TV Stations"
+    };
 
     private static string GetImageMimeType(string path) =>
         Path.GetExtension(path).ToLowerInvariant() switch

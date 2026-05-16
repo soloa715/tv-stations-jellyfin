@@ -9,7 +9,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.TvStations.LiveTv;
 
-public sealed class TvStationsService
+public sealed class TvStationsService : IDisposable
 {
     private const string ChannelMoviePrefix = "tvstations-movies-";
     private const string ChannelShowPrefix = "tvstations-shows-";
@@ -31,6 +31,26 @@ public sealed class TvStationsService
     {
         _libraryManager = libraryManager;
         _logger = logger;
+        _libraryManager.ItemAdded += OnLibraryChanged;
+        _libraryManager.ItemUpdated += OnLibraryChanged;
+        _libraryManager.ItemRemoved += OnLibraryChanged;
+    }
+
+    private void OnLibraryChanged(object? sender, ItemChangeEventArgs e)
+    {
+        lock (_cacheLock)
+        {
+            _itemCache.Clear();
+            _genreCache.Clear();
+        }
+        _logger.LogDebug("TV Stations: library changed, cache cleared");
+    }
+
+    public void Dispose()
+    {
+        _libraryManager.ItemAdded -= OnLibraryChanged;
+        _libraryManager.ItemUpdated -= OnLibraryChanged;
+        _libraryManager.ItemRemoved -= OnLibraryChanged;
     }
 
     public Task<IEnumerable<ChannelInfo>> GetChannelsAsync(CancellationToken cancellationToken)
@@ -330,7 +350,7 @@ public sealed class TvStationsService
             IncludeItemTypes = new[] { kind },
             IsVirtualItem = false,
             Recursive = true,
-            MinDateLastSaved = DateTime.UtcNow.AddDays(-90),
+            MinDateLastSaved = DateTime.UtcNow.AddDays(-(Plugin.Instance?.Configuration.RecentlyAddedDays ?? 90)),
             Limit = 200
         };
         return _libraryManager.GetItemsResult(query).Items
@@ -346,7 +366,7 @@ public sealed class TvStationsService
             IncludeItemTypes = new[] { kind },
             IsVirtualItem = false,
             Recursive = true,
-            MinCommunityRating = 7.5,
+            MinCommunityRating = Plugin.Instance?.Configuration.TopRatedMinRating ?? 7.5,
             Limit = 100
         };
         return _libraryManager.GetItemsResult(query).Items
