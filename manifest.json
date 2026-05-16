@@ -3,11 +3,59 @@
     "guid": "a8b4c6d2-1e3f-4a5b-8c7d-9e0f1a2b3c4d",
     "name": "TV Stations",
     "description": "Creates virtual Live TV channels from your media library, organized by genre. Separate channel groups for Movies and Shows.",
-    "overview": "TV Stations automatically generates genre-based TV channels from your Jellyfin library. Browse live channels like 'Action Movies', 'Drama Shows', and more — complete with an Electronic Program Guide showing what is on now and what is coming up next.",
+    "overview": "TV Stations automatically generates genre-based TV channels from your Jellyfin library. Browse live channels like 'Action Movies', 'Drama Shows', and more \u2014 complete with an Electronic Program Guide showing what is on now and what is coming up next.",
     "owner": "soloa715",
     "category": "Live TV",
     "imageUrl": "https://raw.githubusercontent.com/soloa715/tv-stations-jellyfin/main/logo.png",
     "versions": [
+      {
+        "version": "1.0.9.0",
+        "changelog": "See https://github.com/soloa715/tv-stations-jellyfin/releases/tag/v1.0.9",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/soloa715/tv-stations-jellyfin/releases/download/v1.0.9/jellyfin-plugin-tvstations_1.0.9.0.zip",
+        "checksum": "b211a07c50eb3be8c67a18ff5861844b",
+        "timestamp": "2026-05-15T21:21:47Z"
+      },
+      {
+        "version": "1.0.7.0",
+        "changelog": "See https://github.com/soloa715/tv-stations-jellyfin/releases/tag/v1.0.7",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/soloa715/tv-stations-jellyfin/releases/download/v1.0.7/jellyfin-plugin-tvstations_1.0.7.0.zip",
+        "checksum": "8b9308b1ee71b2f83fa3b457961456e4",
+        "timestamp": "2026-05-15T20:52:54Z"
+      },
+      {
+        "version": "1.0.6.0",
+        "changelog": "See https://github.com/soloa715/tv-stations-jellyfin/releases/tag/v1.0.6",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/soloa715/tv-stations-jellyfin/releases/download/v1.0.6/jellyfin-plugin-tvstations_1.0.6.0.zip",
+        "checksum": "2c22449f3e4bd95fc511d9cb8b65bda8",
+        "timestamp": "2026-05-15T19:55:07Z"
+      },
+      {
+        "version": "1.0.3.0",
+        "changelog": "Fix Malfunctioned status caused by DLL version mismatch with manifest version.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/soloa715/tv-stations-jellyfin/releases/download/v1.0.3/jellyfin-plugin-tvstations_1.0.3.0.zip",
+        "checksum": "20806b9c05bec84e1026775ea14702c3",
+        "timestamp": "2026-05-15T12:30:00Z"
+      },
+      {
+        "version": "1.0.2.0",
+        "changelog": "Fix TypeLoadException on startup (Malfunctioned status) caused by internal Jellyfin.Database.Implementations assembly dependency.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/soloa715/tv-stations-jellyfin/releases/download/v1.0.2/jellyfin-plugin-tvstations_1.0.2.0.zip",
+        "checksum": "704d219069b57a292d08883ffdaa0d50",
+        "timestamp": "2026-05-15T12:10:04Z"
+      },
+      {
+        "version": "1.0.1.0",
+        "changelog": "See https://github.com/soloa715/tv-stations-jellyfin/releases/tag/v1.0.1",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/soloa715/tv-stations-jellyfin/releases/download/v1.0.1/jellyfin-plugin-tvstations_1.0.1.0.zip",
+        "checksum": "61c1b07626665515c1a434e08e7c06bf",
+        "timestamp": "2026-05-15T11:56:56Z"
+      },
       {
         "version": "1.0.0.0",
         "changelog": "Initial release. Genre-based virtual TV channels for Movies (ch 100+) and Shows (ch 200+) with EPG support.",

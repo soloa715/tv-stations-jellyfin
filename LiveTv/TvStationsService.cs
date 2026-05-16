@@ -282,13 +282,7 @@ public sealed class TvStationsService : ILiveTvService
             channels.Add(MakeChannel(id, name, number.ToString(), GetFirstImageUrl(items)));
     }
 
-    private void BuildGenreChannels(
-        List<ChannelInfo> channels,
-        BaseItemKind kind,
-        string prefix,
-        string suffix,
-        int baseNumber,
-        PluginConfiguration config)
+    internal IReadOnlyList<BaseItem> GetItemsForChannel(string channelId)
     {
         var genres = GetGenresCached($"genres-{kind}", () =>
         {
@@ -478,16 +472,6 @@ public sealed class TvStationsService : ILiveTvService
         };
     }
 
-    private static ChannelInfo MakeChannel(string id, string name, string number, string? imageUrl) =>
-        new ChannelInfo
-        {
-            Id = id,
-            Name = name,
-            Number = number,
-            ChannelType = ChannelType.TV,
-            ImageUrl = imageUrl
-        };
-
     private static string FormatItemName(BaseItem item)
     {
         if (item is Episode episode)
@@ -500,6 +484,7 @@ public sealed class TvStationsService : ILiveTvService
                 ? $"{series} - S{s}E{e}"
                 : $"{series} - S{s}E{e} - {epName}";
         }
+
         return item.Name ?? "Unknown";
     }
 

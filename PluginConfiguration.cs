@@ -14,11 +14,6 @@ public class PluginConfiguration : BasePluginConfiguration
     {
         EnableMovies = true;
         EnableShows = true;
-        EnableRecentlyAdded = true;
-        EnableTopRated = true;
-        EnableDecadeChannels = true;
-        EnableCollections = true;
-        ShuffleChannels = false;
         MinItemsPerChannel = 1;
         MaxGenresPerType = 50;
         MovieChannelStart = 100;
