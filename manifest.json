@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/soloa715/tv-stations-jellyfin/main/logo.png",
     "versions": [
       {
+        "version": "1.0.10.0",
+        "changelog": "See https://github.com/soloa715/tv-stations-jellyfin/releases/tag/v1.0.10",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/soloa715/tv-stations-jellyfin/releases/download/v1.0.10/jellyfin-plugin-tvstations_1.0.10.0.zip",
+        "checksum": "7a02f516dcf3ccb598d2f7aaed49ca37",
+        "timestamp": "2026-05-16T01:41:44Z"
+      },
+      {
         "version": "1.0.9.0",
         "changelog": "See https://github.com/soloa715/tv-stations-jellyfin/releases/tag/v1.0.9",
         "targetAbi": "10.11.0.0",
