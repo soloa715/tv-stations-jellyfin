@@ -25,6 +25,7 @@ public sealed class TvStationsService : IDisposable
 
     private readonly Dictionary<string, (IReadOnlyList<BaseItem> Items, DateTime Expiry)> _itemCache = new();
     private readonly Dictionary<string, (List<string> Genres, DateTime Expiry)> _genreCache = new();
+    private readonly Dictionary<string, (string Xml, DateTime Expiry)> _xmltvCache = new();
     private readonly object _cacheLock = new();
 
     public TvStationsService(ILibraryManager libraryManager, ILogger<TvStationsService> logger)
@@ -42,8 +43,26 @@ public sealed class TvStationsService : IDisposable
         {
             _itemCache.Clear();
             _genreCache.Clear();
+            _xmltvCache.Clear();
         }
         _logger.LogDebug("TV Stations: library changed, cache cleared");
+    }
+
+    internal string? GetCachedXmlTv(string baseUrl)
+    {
+        lock (_cacheLock)
+        {
+            return _xmltvCache.TryGetValue(baseUrl, out var cached) && DateTime.UtcNow < cached.Expiry
+                ? cached.Xml : null;
+        }
+    }
+
+    internal void SetCachedXmlTv(string baseUrl, string xml)
+    {
+        lock (_cacheLock)
+        {
+            _xmltvCache[baseUrl] = (xml, DateTime.UtcNow.AddMinutes(10));
+        }
     }
 
     public void Dispose()
@@ -470,6 +489,12 @@ public sealed class TvStationsService : IDisposable
         if (items.Count == 0)
             return Array.Empty<ScheduledItem>();
         return ChannelScheduler.GetSchedule(items, startDateUtc, endDateUtc).ToList();
+    }
+
+    internal string? GetFilePathById(Guid itemId)
+    {
+        var item = _libraryManager.GetItemById(itemId);
+        return string.IsNullOrEmpty(item?.Path) ? null : item.Path;
     }
 
     internal string? GetItemImagePathById(Guid itemId)

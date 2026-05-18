@@ -23,7 +23,7 @@ public class PluginConfiguration : BasePluginConfiguration
         DecadeChannelStart = 320;
         CollectionChannelStart = 400;
         CacheExpiryMinutes = 15;
-        EpgWindowDays = 7;
+        EpgWindowDays = 3;
         RecentlyAddedDays = 90;
         TopRatedMinRating = 7.5;
         ChannelNameOverrides = new List<StringPair>();

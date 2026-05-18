@@ -4,25 +4,151 @@
     <meta charset="utf-8">
     <title>TV Stations</title>
     <style>
-        .tvs-section { margin-bottom: 24px; }
+        /* ── Layout helpers ──────────────────────────────────────────── */
         .tvs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 24px; }
-        .tvs-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 0.9em; }
-        .tvs-table th { text-align: left; padding: 6px 8px; border-bottom: 1px solid #444; color: #aaa; font-weight: normal; }
-        .tvs-table td { padding: 5px 8px; border-bottom: 1px solid #2a2a2a; vertical-align: middle; }
-        .tvs-table input[type="text"] { background: transparent; border: none; border-bottom: 1px solid #555; color: inherit; width: 100%; padding: 2px 0; }
+        @media (max-width: 600px) { .tvs-grid { grid-template-columns: 1fr; } }
+
+        /* ── Cards ───────────────────────────────────────────────────── */
+        .tvs-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 10px;
+            padding: 18px 22px;
+            margin-bottom: 18px;
+        }
+        .tvs-section-header {
+            display: flex; align-items: center; gap: 9px;
+            margin: 0 0 14px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            font-size: 1.05em; font-weight: 600; color: #e0e0e0;
+        }
+        .tvs-section-icon { font-size: 1.1em; }
+
+        /* ── Banner ──────────────────────────────────────────────────── */
+        .tvs-banner {
+            background: linear-gradient(135deg, #0a1a2e 0%, #0e2540 60%, #0a1a2e 100%);
+            border: 1px solid rgba(0,164,220,0.3);
+            border-left: 4px solid #00a4dc;
+            border-radius: 10px;
+            padding: 18px 22px;
+            margin-bottom: 22px;
+            display: flex; align-items: center; gap: 16px;
+        }
+        .tvs-banner-icon { font-size: 2.2em; line-height: 1; }
+        .tvs-banner-title { font-size: 1.35em; font-weight: 700; color: #fff; letter-spacing: 0.02em; }
+        .tvs-banner-sub { font-size: 0.82em; color: #6ab0f5; margin-top: 3px; }
+        .tvs-banner-status { margin-left: auto; text-align: right; font-size: 0.8em; color: #666; min-width: 120px; }
+
+        /* ── URL row ─────────────────────────────────────────────────── */
+        .tvs-url-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+        .tvs-url-row code {
+            flex: 1; background: rgba(0,0,0,0.35); padding: 5px 9px;
+            border-radius: 5px; font-size: 0.82em; color: #aaa;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        .tvs-copy-btn {
+            flex-shrink: 0; padding: 4px 12px; font-size: 0.78em; cursor: pointer;
+            background: rgba(0,164,220,0.15); border: 1px solid rgba(0,164,220,0.4);
+            color: #6ab0f5; border-radius: 5px; transition: all 0.15s;
+        }
+        .tvs-copy-btn:hover { background: rgba(0,164,220,0.28); color: #9ccff5; }
+        .tvs-copy-btn.copied { background: rgba(76,175,80,0.2); border-color: rgba(76,175,80,0.5); color: #81c784; }
+
+        /* ── Save button dirty state ─────────────────────────────────── */
+        .tvs-btn-dirty { box-shadow: 0 0 0 2px #f5c06a; }
+
+        /* ── Advanced collapse ───────────────────────────────────────── */
+        .tvs-advanced > summary {
+            cursor: pointer; color: #6ab0f5; font-size: 0.87em;
+            margin-top: 10px; user-select: none; list-style: none;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .tvs-advanced > summary::before { content: '▶'; font-size: 0.7em; transition: transform 0.2s; }
+        .tvs-advanced[open] > summary::before { transform: rotate(90deg); }
+        .tvs-advanced > summary::-webkit-details-marker { display: none; }
+
+        /* ── Overlap warning ─────────────────────────────────────────── */
+        .tvs-overlap-warn {
+            display: none; color: #f5c06a; font-size: 0.82em;
+            margin-top: 8px; padding: 6px 10px;
+            background: rgba(245,192,106,0.08); border-radius: 5px;
+            border-left: 3px solid #f5c06a;
+        }
+        input.tvs-overlap-error { border-bottom-color: #f44336 !important; }
+
+        /* ── Channel table ───────────────────────────────────────────── */
+        .tvs-table-toolbar {
+            display: flex; align-items: center; gap: 8px;
+            flex-wrap: wrap; margin-bottom: 10px;
+        }
+        .tvs-search {
+            flex: 1; min-width: 140px; padding: 5px 10px;
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 6px; color: inherit; font-size: 0.9em;
+        }
+        .tvs-search:focus { outline: none; border-color: #00a4dc; }
+        .tvs-toolbar-btn {
+            padding: 4px 12px; font-size: 0.82em; cursor: pointer;
+            background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15);
+            color: #ccc; border-radius: 5px; white-space: nowrap;
+        }
+        .tvs-toolbar-btn:hover { background: rgba(255,255,255,0.12); }
+
+        .tvs-summary {
+            display: flex; gap: 16px; flex-wrap: wrap;
+            font-size: 0.82em; color: #777; margin-bottom: 10px;
+        }
+        .tvs-summary strong { color: #00a4dc; }
+
+        .tvs-table { width: 100%; border-collapse: collapse; font-size: 0.88em; }
+        .tvs-table th {
+            text-align: left; padding: 7px 9px;
+            border-bottom: 1px solid rgba(255,255,255,0.12);
+            color: #888; font-weight: 500; font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.05em;
+        }
+        .tvs-table td { padding: 6px 9px; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
+        .tvs-table tr:hover td { background: rgba(255,255,255,0.02); }
+        .tvs-table input[type="text"] {
+            background: transparent; border: none; border-bottom: 1px solid rgba(255,255,255,0.2);
+            color: inherit; width: 100%; padding: 2px 0; font-size: 0.9em;
+        }
         .tvs-table input[type="text"]:focus { outline: none; border-bottom-color: #00a4dc; }
-        .tvs-row-disabled td { opacity: 0.45; }
-        .tvs-badge { font-size: 0.75em; padding: 2px 6px; border-radius: 10px; background: #333; color: #ccc; white-space: nowrap; }
-        .tvs-badge-movies    { background: #1a3a5c; color: #6ab0f5; }
-        .tvs-badge-shows     { background: #1a3a2e; color: #6af5a0; }
-        .tvs-badge-recent    { background: #3a2a1a; color: #f5c06a; }
-        .tvs-badge-top-rated { background: #3a1a1a; color: #f56a6a; }
-        .tvs-badge-decades   { background: #2a1a3a; color: #c06af5; }
-        .tvs-badge-collection { background: #1a3a3a; color: #6af5f5; }
-        .tvs-url-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
-        .tvs-url-row code { flex: 1; background: #111; padding: 3px 6px; border-radius: 3px; user-select: all; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .tvs-copy-btn { padding: 3px 10px; font-size: 0.8em; cursor: pointer; background: #333; border: 1px solid #555; color: #ccc; border-radius: 3px; white-space: nowrap; }
-        .tvs-copy-btn:hover { background: #444; }
+        .tvs-row-disabled td { opacity: 0.4; }
+        .tvs-row-disabled td:last-child { opacity: 1; }
+
+        /* ── Type badges ─────────────────────────────────────────────── */
+        .tvs-badge {
+            font-size: 0.72em; padding: 2px 7px; border-radius: 10px;
+            font-weight: 500; white-space: nowrap; display: inline-block;
+        }
+        .tvs-b-movies    { background: rgba(26,90,156,0.5); color: #90caf9; }
+        .tvs-b-shows     { background: rgba(26,100,60,0.5); color: #80cbc4; }
+        .tvs-b-recent    { background: rgba(100,70,20,0.5); color: #ffcc80; }
+        .tvs-b-top-rated { background: rgba(100,30,30,0.5); color: #ef9a9a; }
+        .tvs-b-decades   { background: rgba(70,30,110,0.5); color: #ce93d8; }
+        .tvs-b-collection{ background: rgba(20,80,90,0.5);  color: #80deea; }
+
+        /* ── Empty/error states ──────────────────────────────────────── */
+        .tvs-state-msg {
+            text-align: center; padding: 36px 20px; color: #555;
+        }
+        .tvs-state-msg .tvs-state-icon { font-size: 2.5em; margin-bottom: 8px; }
+        .tvs-state-msg .tvs-state-title { font-size: 1em; color: #888; }
+        .tvs-state-msg .tvs-state-hint { font-size: 0.82em; margin-top: 4px; color: #555; }
+
+        /* ── Skeleton loader ─────────────────────────────────────────── */
+        @keyframes tvs-shimmer {
+            0%   { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        .tvs-skeleton-row {
+            height: 38px; border-radius: 5px; margin: 4px 0;
+            background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
+            background-size: 200% 100%;
+            animation: tvs-shimmer 1.4s ease-in-out infinite;
+        }
     </style>
 </head>
 <body>
@@ -31,80 +157,144 @@
     <div data-role="content">
         <div class="content-primary">
 
-            <div class="sectionTitleContainer flex align-items-center">
-                <h2 class="sectionTitle">TV Stations Settings</h2>
-            </div>
-
-            <div style="background:#1a1a2e;border-left:4px solid #00a4dc;padding:12px 16px;margin-bottom:20px;border-radius:4px">
-                <h3 style="margin:0 0 8px">Setup Instructions</h3>
-                <p style="margin:0 0 8px">TV Stations provides channels via its own M3U and XMLTV endpoints. Add these once in Jellyfin's Live TV settings:</p>
-                <ol style="margin:0 0 8px;padding-left:20px">
-                    <li>Go to <strong>Dashboard → Live TV → TV Tuners → Add Tuner Device</strong> → choose <strong>M3U Tuner</strong></li>
-                    <li>Enter this M3U URL:
-                        <div class="tvs-url-row">
-                            <code id="m3uUrl"></code>
-                            <button type="button" class="tvs-copy-btn" onclick="copyUrl('m3uUrl')">Copy</button>
-                        </div>
-                    </li>
-                    <li>Save the tuner, then go to <strong>TV Guide Data Providers → Add Guide Provider</strong> → choose <strong>XMLTV</strong></li>
-                    <li>Enter this XMLTV URL:
-                        <div class="tvs-url-row">
-                            <code id="xmltvUrl"></code>
-                            <button type="button" class="tvs-copy-btn" onclick="copyUrl('xmltvUrl')">Copy</button>
-                        </div>
-                    </li>
-                    <li>Save, then run <strong>Scheduled Tasks → Refresh Guide</strong> to load channels immediately.</li>
-                </ol>
+            <!-- Banner -->
+            <div class="tvs-banner">
+                <div class="tvs-banner-icon">📺</div>
+                <div>
+                    <div class="tvs-banner-title">TV Stations</div>
+                    <div class="tvs-banner-sub">Generate live TV channels from your Jellyfin library</div>
+                </div>
+                <div class="tvs-banner-status" id="tvsBannerStatus"></div>
             </div>
 
             <form id="TvStationsConfigForm">
 
+                <!-- Setup Instructions -->
+                <div class="tvs-card">
+                    <div class="tvs-section-header">
+                        <span class="tvs-section-icon">📡</span>Setup Instructions
+                    </div>
+                    <p style="margin:0 0 10px;color:#aaa;font-size:0.9em">
+                        Add the URLs below to Jellyfin's Live TV settings — only needed once.
+                    </p>
+                    <ol style="margin:0;padding-left:20px;color:#aaa;font-size:0.88em;line-height:2">
+                        <li>
+                            <strong style="color:#ddd">Dashboard → Live TV → TV Tuners → Add</strong> → choose <strong style="color:#ddd">M3U Tuner</strong>
+                            <div class="tvs-url-row">
+                                <code id="m3uUrl"></code>
+                                <button type="button" class="tvs-copy-btn" data-target="m3uUrl">Copy</button>
+                            </div>
+                        </li>
+                        <li style="margin-top:4px">
+                            <strong style="color:#ddd">TV Guide Data Providers → Add</strong> → choose <strong style="color:#ddd">XMLTV</strong>
+                            <div class="tvs-url-row">
+                                <code id="xmltvUrl"></code>
+                                <button type="button" class="tvs-copy-btn" data-target="xmltvUrl">Copy</button>
+                            </div>
+                        </li>
+                        <li style="margin-top:4px">Run <strong style="color:#ddd">Scheduled Tasks → Refresh Guide</strong> to load channels immediately.</li>
+                    </ol>
+                </div>
+
                 <!-- Channel Types -->
-                <div class="tvs-section">
-                    <h3 class="sectionTitle">Channel Types</h3>
+                <div class="tvs-card">
+                    <div class="tvs-section-header">
+                        <span class="tvs-section-icon">🎬</span>Channel Types
+                    </div>
                     <div class="tvs-grid">
                         <div class="inputContainer">
                             <label class="emby-checkbox-label">
                                 <input id="chkEnableMovies" type="checkbox" is="emby-checkbox" />
-                                <span>Movie Channels (by genre, ch <span id="lblMovieStart">100</span>+)</span>
+                                <span>Movie Channels <span style="color:#666">(by genre, ch <span id="lblMovieStart">100</span>+)</span></span>
                             </label>
                         </div>
                         <div class="inputContainer">
                             <label class="emby-checkbox-label">
                                 <input id="chkEnableShows" type="checkbox" is="emby-checkbox" />
-                                <span>Show Channels (by genre, ch <span id="lblShowStart">200</span>+)</span>
+                                <span>Show Channels <span style="color:#666">(by genre, ch <span id="lblShowStart">200</span>+)</span></span>
                             </label>
                         </div>
                         <div class="inputContainer">
                             <label class="emby-checkbox-label">
                                 <input id="chkEnableRecentlyAdded" type="checkbox" is="emby-checkbox" />
-                                <span>Recently Added (last <span id="lblRecentDays">90</span> days, ch <span id="lblRecentStart">300</span>+)</span>
+                                <span>Recently Added <span style="color:#666">(last <span id="lblRecentDays">90</span> days, ch <span id="lblRecentStart">300</span>+)</span></span>
                             </label>
                         </div>
                         <div class="inputContainer">
                             <label class="emby-checkbox-label">
                                 <input id="chkEnableTopRated" type="checkbox" is="emby-checkbox" />
-                                <span>Top Rated (≥<span id="lblTopRating">7.5</span> rating, ch <span id="lblTopStart">310</span>+)</span>
+                                <span>Top Rated <span style="color:#666">(≥<span id="lblTopRating">7.5</span> stars, ch <span id="lblTopStart">310</span>+)</span></span>
                             </label>
                         </div>
                         <div class="inputContainer">
                             <label class="emby-checkbox-label">
                                 <input id="chkEnableDecade" type="checkbox" is="emby-checkbox" />
-                                <span>Decade Channels (70s–20s, ch <span id="lblDecadeStart">320</span>+)</span>
+                                <span>Decade Channels <span style="color:#666">(70s–20s, ch <span id="lblDecadeStart">320</span>+)</span></span>
                             </label>
                         </div>
                         <div class="inputContainer">
                             <label class="emby-checkbox-label">
                                 <input id="chkEnableCollections" type="checkbox" is="emby-checkbox" />
-                                <span>Collection Channels (Jellyfin boxsets, ch <span id="lblColStart">400</span>+)</span>
+                                <span>Collections <span style="color:#666">(Jellyfin boxsets, ch <span id="lblColStart">400</span>+)</span></span>
                             </label>
                         </div>
                     </div>
                 </div>
 
+                <!-- Options -->
+                <div class="tvs-card">
+                    <div class="tvs-section-header">
+                        <span class="tvs-section-icon">⚙️</span>Options
+                    </div>
+                    <div class="tvs-grid">
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="txtMinItems">Min Items Per Channel</label>
+                            <input id="txtMinItems" type="number" min="1" max="100" is="emby-input" />
+                            <div class="fieldDescription">Genres with fewer items are skipped.</div>
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="txtEpgDays">EPG Window (days)</label>
+                            <input id="txtEpgDays" type="number" min="1" max="14" is="emby-input" />
+                            <div class="fieldDescription">Days of guide data sent to EPG clients (1–14).</div>
+                        </div>
+                        <div class="inputContainer" style="display:flex;align-items:center;padding-top:16px">
+                            <label class="emby-checkbox-label">
+                                <input id="chkShuffle" type="checkbox" is="emby-checkbox" />
+                                <span>Shuffle channel playlists <span style="color:#666;font-size:0.85em">(deterministic per channel)</span></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <details class="tvs-advanced">
+                        <summary>Advanced Options</summary>
+                        <div class="tvs-grid" style="margin-top:14px">
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="txtMaxGenres">Max Genres Per Type</label>
+                                <input id="txtMaxGenres" type="number" min="1" max="200" is="emby-input" />
+                            </div>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="txtCacheExpiry">Cache Duration (min)</label>
+                                <input id="txtCacheExpiry" type="number" min="1" max="1440" is="emby-input" />
+                                <div class="fieldDescription">Library changes clear the cache instantly.</div>
+                            </div>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="txtRecentDays">Recently Added Window (days)</label>
+                                <input id="txtRecentDays" type="number" min="1" max="365" is="emby-input" />
+                            </div>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="txtTopRating">Top Rated Min Rating</label>
+                                <input id="txtTopRating" type="number" min="1" max="10" step="0.1" is="emby-input" />
+                                <div class="fieldDescription">Community rating threshold (e.g. 7.5).</div>
+                            </div>
+                        </div>
+                    </details>
+                </div>
+
                 <!-- Channel Start Numbers -->
-                <div class="tvs-section">
-                    <h3 class="sectionTitle">Channel Start Numbers</h3>
+                <div class="tvs-card">
+                    <div class="tvs-section-header">
+                        <span class="tvs-section-icon">🔢</span>Channel Start Numbers
+                    </div>
                     <div class="tvs-grid">
                         <div class="inputContainer">
                             <label class="inputLabel inputLabelUnfocused" for="txtMovieStart">Movies Start</label>
@@ -131,85 +321,51 @@
                             <input id="txtColStart" type="number" min="1" max="9999" is="emby-input" />
                         </div>
                     </div>
-                    <div id="overlapWarning" style="display:none;color:#f5c06a;font-size:0.85em;margin-top:8px">
-                        ⚠ Some channel ranges overlap — channels may share numbers.
-                    </div>
+                    <div class="tvs-overlap-warn" id="overlapWarn"></div>
                 </div>
 
-                <!-- Options -->
-                <div class="tvs-section">
-                    <h3 class="sectionTitle">Options</h3>
-                    <div class="tvs-grid">
-                        <div class="inputContainer">
-                            <label class="inputLabel inputLabelUnfocused" for="txtMinItems">Min Items Per Channel</label>
-                            <input id="txtMinItems" type="number" min="1" max="100" is="emby-input" />
-                            <div class="fieldDescription">Genres with fewer items are skipped.</div>
-                        </div>
-                        <div class="inputContainer">
-                            <label class="inputLabel inputLabelUnfocused" for="txtMaxGenres">Max Genres Per Type</label>
-                            <input id="txtMaxGenres" type="number" min="1" max="200" is="emby-input" />
-                        </div>
-                        <div class="inputContainer">
-                            <label class="inputLabel inputLabelUnfocused" for="txtCacheExpiry">Cache Duration (minutes)</label>
-                            <input id="txtCacheExpiry" type="number" min="1" max="1440" is="emby-input" />
-                            <div class="fieldDescription">How long library queries are cached. Library changes clear the cache immediately.</div>
-                        </div>
-                        <div class="inputContainer">
-                            <label class="inputLabel inputLabelUnfocused" for="txtEpgDays">EPG Window (days)</label>
-                            <input id="txtEpgDays" type="number" min="1" max="14" is="emby-input" />
-                            <div class="fieldDescription">Days of guide data served to EPG clients (default 7).</div>
-                        </div>
-                        <div class="inputContainer">
-                            <label class="inputLabel inputLabelUnfocused" for="txtRecentDays">Recently Added Window (days)</label>
-                            <input id="txtRecentDays" type="number" min="1" max="365" is="emby-input" />
-                            <div class="fieldDescription">How far back to look for recently added content.</div>
-                        </div>
-                        <div class="inputContainer">
-                            <label class="inputLabel inputLabelUnfocused" for="txtTopRating">Top Rated Min Rating</label>
-                            <input id="txtTopRating" type="number" min="1" max="10" step="0.1" is="emby-input" />
-                            <div class="fieldDescription">Minimum community rating for Top Rated channels (e.g. 7.5).</div>
-                        </div>
-                        <div class="inputContainer" style="display:flex;align-items:center;padding-top:16px">
-                            <label class="emby-checkbox-label">
-                                <input id="chkShuffle" type="checkbox" is="emby-checkbox" />
-                                <span>Shuffle channel playlists (deterministic per channel)</span>
-                            </label>
-                        </div>
-                    </div>
-                </div>
-
-                <div>
-                    <button is="emby-button" type="submit" class="raised button-submit block emby-button">
-                        <span>Save</span>
+                <!-- Save -->
+                <div style="margin-bottom:32px">
+                    <button id="btnSave" is="emby-button" type="submit" class="raised button-submit block emby-button">
+                        <span id="btnSaveLabel">Save</span>
                     </button>
                 </div>
+
             </form>
 
             <!-- Channel Preview -->
-            <div class="tvs-section" style="margin-top:32px">
-                <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
-                    <h3 class="sectionTitle" style="margin:0">Channel Preview</h3>
-                    <button is="emby-button" type="button" class="raised emby-button" id="btnRefreshChannels" style="padding:4px 12px">
-                        <span>Refresh</span>
-                    </button>
+            <div class="tvs-card">
+                <div class="tvs-section-header">
+                    <span class="tvs-section-icon">📋</span>Channel Preview
                 </div>
-                <p style="color:#888;font-size:0.85em;margin:0 0 8px">
-                    Disable individual channels or set custom display names. Changes are saved with the main <strong>Save</strong> button above.
+                <p style="color:#777;font-size:0.83em;margin:0 0 12px">
+                    Disable individual channels or set custom display names. Saved with the <strong>Save</strong> button above.
                 </p>
-                <div style="margin-bottom:8px;display:flex;align-items:center;gap:8px">
-                    <label for="chFilter" style="color:#aaa;font-size:0.85em">Filter:</label>
-                    <select id="chFilter" is="emby-select" style="max-width:180px">
-                        <option value="">All</option>
-                        <option value="Movies">Movies</option>
-                        <option value="Shows">Shows</option>
-                        <option value="Recent">Recently Added</option>
-                        <option value="Top Rated">Top Rated</option>
-                        <option value="Decades">Decades</option>
-                        <option value="Collection">Collections</option>
+
+                <div class="tvs-summary" id="chSummary"></div>
+
+                <div class="tvs-table-toolbar">
+                    <input id="chSearch" class="tvs-search" type="text" placeholder="🔍 Search channels…" />
+                    <select id="chFilter" is="emby-select" style="min-width:150px">
+                        <option value="">All Types</option>
+                        <option value="Movies">🎬 Movies</option>
+                        <option value="Shows">📺 Shows</option>
+                        <option value="Recent">🆕 Recently Added</option>
+                        <option value="Top Rated">⭐ Top Rated</option>
+                        <option value="Decades">📅 Decades</option>
+                        <option value="Collection">🗂 Collections</option>
                     </select>
+                    <button type="button" class="tvs-toolbar-btn" id="btnEnableAll">Enable All</button>
+                    <button type="button" class="tvs-toolbar-btn" id="btnDisableAll">Disable All</button>
+                    <button type="button" class="tvs-toolbar-btn" id="btnRefreshChannels">↻ Refresh</button>
                 </div>
+
                 <div id="channelTableWrap">
-                    <p style="color:#888">Click Refresh to load channels.</p>
+                    <div class="tvs-state-msg">
+                        <div class="tvs-state-icon">📺</div>
+                        <div class="tvs-state-title">No channels loaded</div>
+                        <div class="tvs-state-hint">Click ↻ Refresh to load the channel list.</div>
+                    </div>
                 </div>
             </div>
 
@@ -218,72 +374,79 @@
 
     <script type="text/javascript">
     (function () {
+        'use strict';
         var pluginId = 'a8b4c6d2-1e3f-4a5b-8c7d-9e0f1a2b3c4d';
         var origin = window.location.origin;
+        var dirty = false;
 
-        document.getElementById('m3uUrl').textContent = origin + '/tvstations/m3u';
+        // ── URL display ───────────────────────────────────────────────
+        document.getElementById('m3uUrl').textContent   = origin + '/tvstations/m3u';
         document.getElementById('xmltvUrl').textContent = origin + '/tvstations/xmltv';
 
-        function copyUrl(id) {
-            var text = document.getElementById(id).textContent;
-            navigator.clipboard.writeText(text).then(function() {
-                var btn = event.target;
-                var orig = btn.textContent;
-                btn.textContent = 'Copied!';
-                setTimeout(function() { btn.textContent = orig; }, 1500);
-            });
-        }
-        window.copyUrl = copyUrl;
-
-        function channelType(id) {
-            if (id.startsWith('tvstations-movies-')) return 'Movies';
-            if (id.startsWith('tvstations-shows-')) return 'Shows';
-            if (id.startsWith('tvstations-recent-')) return 'Recent';
-            if (id.startsWith('tvstations-toprated-')) return 'Top Rated';
-            if (id.startsWith('tvstations-decade-')) return 'Decades';
-            if (id.startsWith('tvstations-collection-')) return 'Collection';
-            return '';
-        }
-
-        function badgeClass(type) {
-            return 'tvs-badge tvs-badge-' + type.toLowerCase().replace(/\s+/g, '-');
-        }
-
-        function updateStartLabels() {
-            var pairs = [
-                ['txtMovieStart', 'lblMovieStart'],
-                ['txtShowStart', 'lblShowStart'],
-                ['txtRecentStart', 'lblRecentStart'],
-                ['txtTopStart', 'lblTopStart'],
-                ['txtDecadeStart', 'lblDecadeStart'],
-                ['txtColStart', 'lblColStart']
-            ];
-            pairs.forEach(function(p) {
-                var val = document.getElementById(p[0]).value;
-                document.getElementById(p[1]).textContent = val;
-            });
-        }
-
-        function checkOverlap() {
-            var starts = [
-                parseInt(document.getElementById('txtMovieStart').value, 10) || 0,
-                parseInt(document.getElementById('txtShowStart').value, 10) || 0,
-                parseInt(document.getElementById('txtRecentStart').value, 10) || 0,
-                parseInt(document.getElementById('txtTopStart').value, 10) || 0,
-                parseInt(document.getElementById('txtDecadeStart').value, 10) || 0,
-                parseInt(document.getElementById('txtColStart').value, 10) || 0
-            ].filter(function(n) { return n > 0; });
-            var overlap = starts.length !== new Set(starts).size;
-            document.getElementById('overlapWarning').style.display = overlap ? '' : 'none';
-        }
-
-        ['txtMovieStart','txtShowStart','txtRecentStart','txtTopStart','txtDecadeStart','txtColStart'].forEach(function(id) {
-            document.getElementById(id).addEventListener('input', function() {
-                updateStartLabels();
-                checkOverlap();
+        // ── Copy buttons ──────────────────────────────────────────────
+        document.querySelectorAll('.tvs-copy-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var text = document.getElementById(btn.getAttribute('data-target')).textContent;
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = '✓ Copied';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                }).catch(function() {
+                    var el = document.getElementById(btn.getAttribute('data-target'));
+                    var range = document.createRange();
+                    range.selectNodeContents(el);
+                    window.getSelection().removeAllRanges();
+                    window.getSelection().addRange(range);
+                    btn.textContent = 'Select & copy';
+                    setTimeout(function() { btn.textContent = 'Copy'; }, 2000);
+                });
             });
         });
 
+        // ── Dirty state ───────────────────────────────────────────────
+        function markDirty() {
+            if (!dirty) {
+                dirty = true;
+                document.getElementById('btnSaveLabel').textContent = 'Save ●';
+                document.getElementById('btnSave').classList.add('tvs-btn-dirty');
+            }
+        }
+        function clearDirty() {
+            dirty = false;
+            document.getElementById('btnSaveLabel').textContent = 'Save';
+            document.getElementById('btnSave').classList.remove('tvs-btn-dirty');
+        }
+        window.addEventListener('beforeunload', function(e) {
+            if (dirty) e.returnValue = 'You have unsaved changes.';
+        });
+
+        // ── Attach dirty tracking to every form input ─────────────────
+        document.querySelectorAll('#TvStationsConfigForm input, #TvStationsConfigForm select').forEach(function(el) {
+            el.addEventListener('change', markDirty);
+            el.addEventListener('input',  markDirty);
+        });
+
+        // ── Label sync ────────────────────────────────────────────────
+        var startPairs = [
+            ['txtMovieStart','lblMovieStart'], ['txtShowStart','lblShowStart'],
+            ['txtRecentStart','lblRecentStart'], ['txtTopStart','lblTopStart'],
+            ['txtDecadeStart','lblDecadeStart'], ['txtColStart','lblColStart']
+        ];
+        function updateStartLabels() {
+            startPairs.forEach(function(p) {
+                var v = document.getElementById(p[0]).value;
+                document.getElementById(p[1]).textContent = v;
+            });
+        }
+        startPairs.forEach(function(p) {
+            document.getElementById(p[0]).addEventListener('input', function() {
+                document.getElementById(p[1]).textContent = this.value;
+                checkOverlap();
+            });
+        });
         document.getElementById('txtRecentDays').addEventListener('input', function() {
             document.getElementById('lblRecentDays').textContent = this.value || 90;
         });
@@ -291,102 +454,203 @@
             document.getElementById('lblTopRating').textContent = this.value || 7.5;
         });
 
-        document.querySelector('#TvStationsConfigPage').addEventListener('pageshow', function () {
+        // ── Overlap detection ─────────────────────────────────────────
+        function checkOverlap() {
+            var checks = [
+                { id:'txtMovieStart',  label:'Movies',     enableId:'chkEnableMovies' },
+                { id:'txtShowStart',   label:'Shows',      enableId:'chkEnableShows' },
+                { id:'txtRecentStart', label:'Recently Added', enableId:'chkEnableRecentlyAdded' },
+                { id:'txtTopStart',    label:'Top Rated',  enableId:'chkEnableTopRated' },
+                { id:'txtDecadeStart', label:'Decades',    enableId:'chkEnableDecade' },
+                { id:'txtColStart',    label:'Collections',enableId:'chkEnableCollections' }
+            ];
+            var maxG = parseInt(document.getElementById('txtMaxGenres').value, 10) || 50;
+            var ranges = checks
+                .filter(function(c) { return document.getElementById(c.enableId).checked; })
+                .map(function(c) {
+                    var s = parseInt(document.getElementById(c.id).value, 10) || 0;
+                    return { id: c.id, label: c.label, start: s, end: s + maxG + 9 };
+                });
+
+            // Reset highlights
+            checks.forEach(function(c) {
+                document.getElementById(c.id).classList.remove('tvs-overlap-error');
+            });
+
+            var msgs = [];
+            for (var i = 0; i < ranges.length; i++) {
+                for (var j = i + 1; j < ranges.length; j++) {
+                    var a = ranges[i], b = ranges[j];
+                    if (a.start <= b.end && b.start <= a.end) {
+                        document.getElementById(a.id).classList.add('tvs-overlap-error');
+                        document.getElementById(b.id).classList.add('tvs-overlap-error');
+                        msgs.push(a.label + ' (ch ' + a.start + '–' + a.end + ') overlaps ' +
+                                  b.label + ' (ch ' + b.start + '–' + b.end + ')');
+                    }
+                }
+            }
+            var warn = document.getElementById('overlapWarn');
+            if (msgs.length) {
+                warn.style.display = '';
+                warn.innerHTML = '⚠ Channel number overlaps detected:<br>• ' + msgs.join('<br>• ');
+            } else {
+                warn.style.display = 'none';
+            }
+        }
+
+        // ── Page load ─────────────────────────────────────────────────
+        document.querySelector('#TvStationsConfigPage').addEventListener('pageshow', function() {
             Dashboard.showLoadingMsg();
-            ApiClient.getPluginConfiguration(pluginId).then(function (cfg) {
-                document.getElementById('chkEnableMovies').checked = cfg.EnableMovies !== false;
-                document.getElementById('chkEnableShows').checked = cfg.EnableShows !== false;
+            ApiClient.getPluginConfiguration(pluginId).then(function(cfg) {
+                document.getElementById('chkEnableMovies').checked        = cfg.EnableMovies !== false;
+                document.getElementById('chkEnableShows').checked         = cfg.EnableShows !== false;
                 document.getElementById('chkEnableRecentlyAdded').checked = !!cfg.EnableRecentlyAdded;
-                document.getElementById('chkEnableTopRated').checked = !!cfg.EnableTopRated;
-                document.getElementById('chkEnableDecade').checked = !!cfg.EnableDecadeChannels;
-                document.getElementById('chkEnableCollections').checked = !!cfg.EnableCollections;
-                document.getElementById('chkShuffle').checked = !!cfg.ShuffleChannels;
+                document.getElementById('chkEnableTopRated').checked      = !!cfg.EnableTopRated;
+                document.getElementById('chkEnableDecade').checked        = !!cfg.EnableDecadeChannels;
+                document.getElementById('chkEnableCollections').checked   = !!cfg.EnableCollections;
+                document.getElementById('chkShuffle').checked             = !!cfg.ShuffleChannels;
 
-                document.getElementById('txtMovieStart').value = cfg.MovieChannelStart || 100;
-                document.getElementById('txtShowStart').value = cfg.ShowChannelStart || 200;
+                document.getElementById('txtMovieStart').value  = cfg.MovieChannelStart  || 100;
+                document.getElementById('txtShowStart').value   = cfg.ShowChannelStart   || 200;
                 document.getElementById('txtRecentStart').value = cfg.RecentlyAddedChannelStart || 300;
-                document.getElementById('txtTopStart').value = cfg.TopRatedChannelStart || 310;
+                document.getElementById('txtTopStart').value    = cfg.TopRatedChannelStart || 310;
                 document.getElementById('txtDecadeStart').value = cfg.DecadeChannelStart || 320;
-                document.getElementById('txtColStart').value = cfg.CollectionChannelStart || 400;
-                document.getElementById('txtMinItems').value = cfg.MinItemsPerChannel || 1;
-                document.getElementById('txtMaxGenres').value = cfg.MaxGenresPerType || 50;
+                document.getElementById('txtColStart').value    = cfg.CollectionChannelStart || 400;
+                document.getElementById('txtMinItems').value    = cfg.MinItemsPerChannel || 1;
+                document.getElementById('txtMaxGenres').value   = cfg.MaxGenresPerType   || 50;
                 document.getElementById('txtCacheExpiry').value = cfg.CacheExpiryMinutes || 15;
-                document.getElementById('txtEpgDays').value = cfg.EpgWindowDays || 7;
-                document.getElementById('txtRecentDays').value = cfg.RecentlyAddedDays || 90;
-                document.getElementById('txtTopRating').value = cfg.TopRatedMinRating || 7.5;
+                document.getElementById('txtEpgDays').value     = cfg.EpgWindowDays      || 3;
+                document.getElementById('txtRecentDays').value  = cfg.RecentlyAddedDays  || 90;
+                document.getElementById('txtTopRating').value   = cfg.TopRatedMinRating  != null ? cfg.TopRatedMinRating : 7.5;
 
-                document.getElementById('lblRecentDays').textContent = cfg.RecentlyAddedDays || 90;
-                document.getElementById('lblTopRating').textContent = cfg.TopRatedMinRating || 7.5;
+                document.getElementById('lblRecentDays').textContent = cfg.RecentlyAddedDays  || 90;
+                document.getElementById('lblTopRating').textContent  = cfg.TopRatedMinRating  != null ? cfg.TopRatedMinRating : 7.5;
 
                 updateStartLabels();
                 checkOverlap();
+                clearDirty();
                 Dashboard.hideLoadingMsg();
             });
         });
 
-        // Collect channel overrides from table into cfg
-        function collectOverrides(cfg) {
-            var disabled = [];
-            var overrides = [];
-            document.querySelectorAll('.ch-enabled').forEach(function (cb) {
-                if (!cb.checked) disabled.push(cb.getAttribute('data-id'));
-            });
-            document.querySelectorAll('.ch-name').forEach(function (inp) {
-                var val = inp.value.trim();
-                if (val) overrides.push({ Key: inp.getAttribute('data-id'), Value: val });
-            });
-            cfg.DisabledChannels = disabled;
-            cfg.ChannelNameOverrides = overrides;
-        }
-
-        // Unified save: global config + channel overrides + auto-refresh table
-        document.getElementById('TvStationsConfigForm').addEventListener('submit', function (e) {
+        // ── Form save ─────────────────────────────────────────────────
+        document.getElementById('TvStationsConfigForm').addEventListener('submit', function(e) {
             e.preventDefault();
             Dashboard.showLoadingMsg();
-            ApiClient.getPluginConfiguration(pluginId).then(function (cfg) {
-                cfg.EnableMovies = document.getElementById('chkEnableMovies').checked;
-                cfg.EnableShows = document.getElementById('chkEnableShows').checked;
-                cfg.EnableRecentlyAdded = document.getElementById('chkEnableRecentlyAdded').checked;
-                cfg.EnableTopRated = document.getElementById('chkEnableTopRated').checked;
-                cfg.EnableDecadeChannels = document.getElementById('chkEnableDecade').checked;
-                cfg.EnableCollections = document.getElementById('chkEnableCollections').checked;
-                cfg.ShuffleChannels = document.getElementById('chkShuffle').checked;
+            ApiClient.getPluginConfiguration(pluginId).then(function(cfg) {
+                cfg.EnableMovies          = document.getElementById('chkEnableMovies').checked;
+                cfg.EnableShows           = document.getElementById('chkEnableShows').checked;
+                cfg.EnableRecentlyAdded   = document.getElementById('chkEnableRecentlyAdded').checked;
+                cfg.EnableTopRated        = document.getElementById('chkEnableTopRated').checked;
+                cfg.EnableDecadeChannels  = document.getElementById('chkEnableDecade').checked;
+                cfg.EnableCollections     = document.getElementById('chkEnableCollections').checked;
+                cfg.ShuffleChannels       = document.getElementById('chkShuffle').checked;
 
-                cfg.MovieChannelStart = parseInt(document.getElementById('txtMovieStart').value, 10) || 100;
-                cfg.ShowChannelStart = parseInt(document.getElementById('txtShowStart').value, 10) || 200;
-                cfg.RecentlyAddedChannelStart = parseInt(document.getElementById('txtRecentStart').value, 10) || 300;
-                cfg.TopRatedChannelStart = parseInt(document.getElementById('txtTopStart').value, 10) || 310;
-                cfg.DecadeChannelStart = parseInt(document.getElementById('txtDecadeStart').value, 10) || 320;
-                cfg.CollectionChannelStart = parseInt(document.getElementById('txtColStart').value, 10) || 400;
-                cfg.MinItemsPerChannel = parseInt(document.getElementById('txtMinItems').value, 10) || 1;
-                cfg.MaxGenresPerType = parseInt(document.getElementById('txtMaxGenres').value, 10) || 50;
-                cfg.CacheExpiryMinutes = parseInt(document.getElementById('txtCacheExpiry').value, 10) || 15;
-                cfg.EpgWindowDays = parseInt(document.getElementById('txtEpgDays').value, 10) || 7;
-                cfg.RecentlyAddedDays = parseInt(document.getElementById('txtRecentDays').value, 10) || 90;
-                cfg.TopRatedMinRating = parseFloat(document.getElementById('txtTopRating').value) || 7.5;
+                cfg.MovieChannelStart          = parseInt(document.getElementById('txtMovieStart').value, 10)  || 100;
+                cfg.ShowChannelStart           = parseInt(document.getElementById('txtShowStart').value, 10)   || 200;
+                cfg.RecentlyAddedChannelStart  = parseInt(document.getElementById('txtRecentStart').value, 10) || 300;
+                cfg.TopRatedChannelStart       = parseInt(document.getElementById('txtTopStart').value, 10)    || 310;
+                cfg.DecadeChannelStart         = parseInt(document.getElementById('txtDecadeStart').value, 10) || 320;
+                cfg.CollectionChannelStart     = parseInt(document.getElementById('txtColStart').value, 10)    || 400;
+                cfg.MinItemsPerChannel         = parseInt(document.getElementById('txtMinItems').value, 10)    || 1;
+                cfg.MaxGenresPerType           = parseInt(document.getElementById('txtMaxGenres').value, 10)   || 50;
+                cfg.CacheExpiryMinutes         = parseInt(document.getElementById('txtCacheExpiry').value, 10) || 15;
+                cfg.EpgWindowDays              = parseInt(document.getElementById('txtEpgDays').value, 10)     || 3;
+                cfg.RecentlyAddedDays          = parseInt(document.getElementById('txtRecentDays').value, 10)  || 90;
+                cfg.TopRatedMinRating          = parseFloat(document.getElementById('txtTopRating').value)     || 7.5;
 
-                collectOverrides(cfg);
+                // Collect channel overrides from table (if rendered)
+                var disabled  = [];
+                var overrides = [];
+                document.querySelectorAll('.ch-enabled').forEach(function(cb) {
+                    if (!cb.checked) disabled.push(cb.getAttribute('data-id'));
+                });
+                document.querySelectorAll('.ch-name').forEach(function(inp) {
+                    var val = inp.value.trim();
+                    if (val) overrides.push({ Key: inp.getAttribute('data-id'), Value: val });
+                });
+                cfg.DisabledChannels     = disabled;
+                cfg.ChannelNameOverrides = overrides;
 
-                ApiClient.updatePluginConfiguration(pluginId, cfg).then(function () {
+                ApiClient.updatePluginConfiguration(pluginId, cfg).then(function() {
+                    clearDirty();
                     Dashboard.processPluginConfigurationUpdateResult();
                     loadChannels();
                 });
             });
         });
 
-        // Channel preview table
-        function escHtml(str) {
-            return String(str || '')
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;');
+        // ── Channel table helpers ─────────────────────────────────────
+        function escHtml(s) {
+            return String(s || '')
+                .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+                .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        function channelType(id) {
+            if (id.startsWith('tvstations-movies-'))     return 'Movies';
+            if (id.startsWith('tvstations-shows-'))      return 'Shows';
+            if (id.startsWith('tvstations-recent-'))     return 'Recent';
+            if (id.startsWith('tvstations-toprated-'))   return 'Top Rated';
+            if (id.startsWith('tvstations-decade-'))     return 'Decades';
+            if (id.startsWith('tvstations-collection-')) return 'Collection';
+            return '';
+        }
+
+        function badgeCls(type) {
+            var map = {
+                'Movies':'tvs-b-movies', 'Shows':'tvs-b-shows', 'Recent':'tvs-b-recent',
+                'Top Rated':'tvs-b-top-rated', 'Decades':'tvs-b-decades', 'Collection':'tvs-b-collection'
+            };
+            return 'tvs-badge ' + (map[type] || '');
+        }
+
+        function applyFilter() {
+            var typeFilter = document.getElementById('chFilter').value;
+            var textFilter = (document.getElementById('chSearch').value || '').toLowerCase().trim();
+            var visible = 0;
+            document.querySelectorAll('#channelTableWrap tbody tr').forEach(function(row) {
+                var matchType = !typeFilter || row.getAttribute('data-type') === typeFilter;
+                var matchText = !textFilter || row.getAttribute('data-name').includes(textFilter);
+                var show = matchType && matchText;
+                row.style.display = show ? '' : 'none';
+                if (show) visible++;
+            });
+            updateSummary(visible);
+        }
+
+        function updateSummary(visibleOverride) {
+            var rows    = document.querySelectorAll('#channelTableWrap tbody tr');
+            var enabled = document.querySelectorAll('.ch-enabled:checked').length;
+            var total   = rows.length;
+            var visible = (visibleOverride !== undefined) ? visibleOverride :
+                Array.from(rows).filter(function(r) { return r.style.display !== 'none'; }).length;
+
+            var s = document.getElementById('chSummary');
+            if (total === 0) { s.innerHTML = ''; return; }
+            s.innerHTML =
+                '<span><strong>' + enabled + '</strong> enabled</span>' +
+                '<span><strong>' + (total - enabled) + '</strong> disabled</span>' +
+                '<span><strong>' + total + '</strong> total</span>' +
+                (visible < total ? '<span style="color:#f5c06a">showing <strong>' + visible + '</strong></span>' : '');
+        }
+
+        function renderSkeleton() {
+            var html = '';
+            for (var i = 0; i < 6; i++) html += '<div class="tvs-skeleton-row"></div>';
+            document.getElementById('channelTableWrap').innerHTML = html;
         }
 
         function renderTable(channels) {
             var wrap = document.getElementById('channelTableWrap');
             if (!channels || channels.length === 0) {
-                wrap.innerHTML = '<p style="color:#888">No channels found. Check channel type settings and save first.</p>';
+                wrap.innerHTML =
+                    '<div class="tvs-state-msg">' +
+                    '<div class="tvs-state-icon">📺</div>' +
+                    '<div class="tvs-state-title">No channels found</div>' +
+                    '<div class="tvs-state-hint">Enable at least one channel type above, click Save, then Refresh.</div>' +
+                    '</div>';
+                updateSummary(0);
                 return;
             }
 
@@ -394,54 +658,79 @@
                 '<th>#</th><th>Type</th><th>Name</th><th>Items</th><th>Enabled</th><th>Custom Name</th>' +
                 '</tr></thead><tbody>';
 
-            channels.forEach(function (ch) {
+            channels.forEach(function(ch) {
                 var type = channelType(ch.id);
-                var isDisabled = ch.isDisabled;
-                var rowClass = isDisabled ? ' class="tvs-row-disabled"' : '';
-                var customName = ch.nameOverride || '';
-                html += '<tr' + rowClass + ' data-type="' + escHtml(type) + '">' +
-                    '<td>' + escHtml(ch.number || '') + '</td>' +
-                    '<td><span class="' + badgeClass(type) + '">' + escHtml(type) + '</span></td>' +
+                var rowClass = ch.isDisabled ? ' class="tvs-row-disabled"' : '';
+                html += '<tr' + rowClass +
+                    ' data-type="' + escHtml(type) + '"' +
+                    ' data-name="' + escHtml((ch.name || '').toLowerCase()) + '">' +
+                    '<td style="color:#666;font-size:0.9em">' + escHtml(ch.number || '') + '</td>' +
+                    '<td><span class="' + badgeCls(type) + '">' + escHtml(type) + '</span></td>' +
                     '<td>' + escHtml(ch.name) + '</td>' +
-                    '<td>' + ch.itemCount + '</td>' +
+                    '<td style="color:#888;font-size:0.9em">' + ch.itemCount + '</td>' +
                     '<td><label class="emby-checkbox-label" style="margin:0">' +
                         '<input type="checkbox" is="emby-checkbox" class="ch-enabled" data-id="' + escHtml(ch.id) + '"' +
-                        (!isDisabled ? ' checked' : '') + '>' +
+                        (!ch.isDisabled ? ' checked' : '') + '>' +
                         '<span></span></label></td>' +
                     '<td><input type="text" class="ch-name" data-id="' + escHtml(ch.id) + '" value="' +
-                        escHtml(customName) + '" placeholder="(default)"></td>' +
+                        escHtml(ch.nameOverride || '') + '" placeholder="(default)"></td>' +
                     '</tr>';
             });
             html += '</tbody></table>';
             wrap.innerHTML = html;
 
-            // Re-apply current filter
-            var filter = document.getElementById('chFilter').value;
-            if (filter) applyFilter(filter);
-        }
-
-        function applyFilter(filter) {
-            document.querySelectorAll('#channelTableWrap tbody tr').forEach(function (row) {
-                row.style.display = (!filter || row.getAttribute('data-type') === filter) ? '' : 'none';
+            // Attach dirty tracking to channel table inputs
+            wrap.querySelectorAll('input').forEach(function(el) {
+                el.addEventListener('change', markDirty);
+                el.addEventListener('input',  markDirty);
             });
-        }
 
-        document.getElementById('chFilter').addEventListener('change', function () {
-            applyFilter(this.value);
-        });
+            // Re-apply current filter/search
+            var savedFilter = document.getElementById('chFilter').value;
+            var savedSearch = document.getElementById('chSearch').value;
+            if (savedFilter || savedSearch) applyFilter();
+            else updateSummary();
+
+            // Populate banner status
+            var totalCh = channels.length;
+            var enabledCh = channels.filter(function(c) { return !c.isDisabled; }).length;
+            document.getElementById('tvsBannerStatus').innerHTML =
+                '<strong style="color:#00a4dc">' + enabledCh + '</strong> channels enabled';
+        }
 
         function loadChannels() {
-            var wrap = document.getElementById('channelTableWrap');
-            wrap.innerHTML = '<p style="color:#888">Loading&hellip;</p>';
+            renderSkeleton();
             fetch(origin + '/tvstations/channels')
-                .then(function (r) { return r.json(); })
+                .then(function(r) {
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    return r.json();
+                })
                 .then(renderTable)
-                .catch(function () {
-                    wrap.innerHTML = '<p style="color:#e05;">Failed to load channels. Make sure the plugin is installed and Jellyfin has been restarted.</p>';
+                .catch(function(err) {
+                    document.getElementById('channelTableWrap').innerHTML =
+                        '<div class="tvs-state-msg">' +
+                        '<div class="tvs-state-icon" style="color:#f44336">⚠</div>' +
+                        '<div class="tvs-state-title" style="color:#f44336">Failed to load channels</div>' +
+                        '<div class="tvs-state-hint">Make sure the plugin is installed and Jellyfin has been restarted.</div>' +
+                        '</div>';
                 });
         }
 
+        // ── Toolbar wiring ────────────────────────────────────────────
         document.getElementById('btnRefreshChannels').addEventListener('click', loadChannels);
+
+        document.getElementById('btnEnableAll').addEventListener('click', function() {
+            document.querySelectorAll('.ch-enabled').forEach(function(cb) { cb.checked = true; });
+            markDirty(); updateSummary();
+        });
+        document.getElementById('btnDisableAll').addEventListener('click', function() {
+            document.querySelectorAll('.ch-enabled').forEach(function(cb) { cb.checked = false; });
+            markDirty(); updateSummary();
+        });
+
+        document.getElementById('chFilter').addEventListener('change', applyFilter);
+        document.getElementById('chSearch').addEventListener('input',  applyFilter);
+
     })();
     </script>
 </div>

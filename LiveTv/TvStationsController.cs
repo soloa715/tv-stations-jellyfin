@@ -42,7 +42,7 @@ public sealed class TvStationsController : ControllerBase
             sb.Append($" tvg-logo=\"{baseUrl}/tvstations/image/{escapedId}\"");
             sb.Append($" group-title=\"{GetGroupTitle(channel.Id)}\"");
             sb.Append($",{channel.Name}\n");
-            sb.Append($"{baseUrl}/tvstations/stream/{escapedId}\n");
+            sb.Append($"{baseUrl}/tvstations/hls/{escapedId}.m3u8\n");
         }
 
         return Content(sb.ToString(), "audio/x-mpegurl", Encoding.UTF8);
@@ -68,11 +68,68 @@ public sealed class TvStationsController : ControllerBase
         return PhysicalFile(path, GetMimeType(path), enableRangeProcessing: true);
     }
 
-    /// <summary>Returns an XMLTV EPG covering a configurable window (default 7 days).</summary>
+    /// <summary>Serves a library media file directly by item GUID.</summary>
+    [HttpGet("file/{itemId:guid}")]
+    public IActionResult GetFile(Guid itemId)
+    {
+        var path = _service.GetFilePathById(itemId);
+        if (path is null || !System.IO.File.Exists(path))
+            return NotFound();
+        return PhysicalFile(path, GetMimeType(path), enableRangeProcessing: true);
+    }
+
+    /// <summary>Returns an HLS VOD playlist for a channel covering ~12 hours of upcoming content.</summary>
+    [HttpGet("hls/{channelId}.m3u8")]
+    [Produces("application/vnd.apple.mpegurl")]
+    public IActionResult GetHlsPlaylist(string channelId)
+    {
+        channelId = Uri.UnescapeDataString(channelId);
+        var items = _service.GetItemsForChannel(channelId);
+        if (items.Count == 0)
+            return NotFound("No content for this channel.");
+
+        var now = DateTime.UtcNow;
+        var schedule = _service.GetScheduleForChannel(channelId, now.AddSeconds(-30), now.AddHours(12))
+            .Take(50)
+            .ToList();
+
+        if (schedule.Count == 0)
+            return NotFound("Nothing scheduled.");
+
+        var baseUrl = $"{Request.Scheme}://{Request.Host}";
+        var maxDurSeconds = (int)Math.Ceiling(schedule.Max(s => (s.EndUtc - s.StartUtc).TotalSeconds));
+
+        var sb = new StringBuilder();
+        sb.AppendLine("#EXTM3U");
+        sb.AppendLine("#EXT-X-VERSION:3");
+        sb.AppendLine($"#EXT-X-TARGETDURATION:{maxDurSeconds}");
+        sb.AppendLine("#EXT-X-PLAYLIST-TYPE:VOD");
+
+        bool first = true;
+        foreach (var s in schedule)
+        {
+            var dur = (s.EndUtc - s.StartUtc).TotalSeconds;
+            if (!first) sb.AppendLine("#EXT-X-DISCONTINUITY");
+            sb.AppendLine($"#EXTINF:{dur:F3},{Escape(TvStationsService.FormatItemName(s.Item))}");
+            sb.AppendLine($"{baseUrl}/tvstations/file/{s.Item.Id}");
+            first = false;
+        }
+        sb.AppendLine("#EXT-X-ENDLIST");
+
+        return Content(sb.ToString(), "application/vnd.apple.mpegurl", Encoding.UTF8);
+    }
+
+    /// <summary>Returns an XMLTV EPG covering a configurable window (default 3 days).</summary>
     [HttpGet("xmltv")]
     [Produces("application/xml")]
     public async Task<IActionResult> GetXmlTv(CancellationToken cancellationToken)
     {
+        var baseUrl = $"{Request.Scheme}://{Request.Host}";
+
+        var cached = _service.GetCachedXmlTv(baseUrl);
+        if (cached is not null)
+            return Content(cached, "application/xml", Encoding.UTF8);
+
         var channels = (await _service.GetChannelsAsync(cancellationToken)).ToList();
         var now = DateTime.UtcNow;
         var epgConfig = Plugin.Instance?.Configuration ?? new PluginConfiguration();
@@ -85,7 +142,6 @@ public sealed class TvStationsController : ControllerBase
         sb.Append("<!DOCTYPE tv SYSTEM \"xmltv.dtd\">\n");
         sb.Append("<tv generator-info-name=\"TV Stations Plugin\">\n");
 
-        var baseUrl = $"{Request.Scheme}://{Request.Host}";
         foreach (var channel in channels)
         {
             var logoUrl = $"{baseUrl}/tvstations/image/{Uri.EscapeDataString(channel.Id)}";
@@ -115,7 +171,9 @@ public sealed class TvStationsController : ControllerBase
         }
 
         sb.Append("</tv>\n");
-        return Content(sb.ToString(), "application/xml", Encoding.UTF8);
+        var xml = sb.ToString();
+        _service.SetCachedXmlTv(baseUrl, xml);
+        return Content(xml, "application/xml", Encoding.UTF8);
     }
 
     /// <summary>Serves the primary image for a specific library item by its Jellyfin ID.</summary>
